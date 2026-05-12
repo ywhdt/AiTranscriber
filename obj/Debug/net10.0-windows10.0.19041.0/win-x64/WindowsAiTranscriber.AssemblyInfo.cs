@@ -17,7 +17,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("WindowsAiTranscriber")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0+94d855f296154d1e40db7734a3d55d955179ac46")]
 [assembly: System.Reflection.AssemblyProductAttribute("WindowsAiTranscriber")]
 [assembly: System.Reflection.AssemblyTitleAttribute("WindowsAiTranscriber")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
