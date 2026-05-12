@@ -1,0 +1,149 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    x:Class="WindowsAiTranscriber.MainPage"
+    Title="实时转写">
+
+    <Grid
+        Padding="24"
+        ColumnDefinitions="360,*"
+        RowDefinitions="Auto,*"
+        ColumnSpacing="18"
+        RowSpacing="16">
+
+        <VerticalStackLayout Grid.ColumnSpan="2" Spacing="6">
+            <Label
+                Text="Windows AI Transcriber"
+                FontAttributes="Bold"
+                FontSize="28"
+                TextColor="#101828" />
+            <Label
+                x:Name="StatusLabel"
+                Text="准备就绪。填写 API Key 后点击开始。"
+                FontSize="14"
+                TextColor="#667085" />
+        </VerticalStackLayout>
+
+        <Border
+            Grid.Row="1"
+            Grid.Column="0"
+            Padding="18"
+            Stroke="#D0D5DD"
+            StrokeShape="RoundRectangle 8"
+            BackgroundColor="#F9FAFB">
+            <ScrollView>
+                <VerticalStackLayout Spacing="14">
+                    <Label Text="连接设置" FontAttributes="Bold" FontSize="18" TextColor="#101828" />
+
+                    <VerticalStackLayout Spacing="6">
+                        <Label Text="OpenAI API Key" TextColor="#344054" />
+                        <Entry
+                            x:Name="ApiKeyEntry"
+                            IsPassword="True"
+                            Placeholder="sk-..."
+                            ClearButtonVisibility="WhileEditing" />
+                    </VerticalStackLayout>
+
+                    <VerticalStackLayout Spacing="6">
+                        <Label Text="转写模型" TextColor="#344054" />
+                        <Picker x:Name="ModelPicker" />
+                    </VerticalStackLayout>
+
+					<VerticalStackLayout Spacing="6">
+						<Label Text="语言" TextColor="#344054" />
+						<Picker x:Name="LanguagePicker" />
+					</VerticalStackLayout>
+
+                    <VerticalStackLayout Spacing="6">
+                        <Label Text="专有名词提示" TextColor="#344054" />
+                        <Editor
+                            x:Name="PromptEditor"
+                            HeightRequest="118"
+                            Placeholder="例如课程名、人名、产品名。可留空。" />
+                    </VerticalStackLayout>
+
+                    <Grid ColumnDefinitions="*,*" ColumnSpacing="10">
+                        <Button
+                            x:Name="StartButton"
+                            Text="开始"
+                            Clicked="OnStartClicked" />
+                        <Button
+                            x:Name="StopButton"
+                            Grid.Column="1"
+                            Text="停止"
+                            IsEnabled="False"
+                            BackgroundColor="#344054"
+                            Clicked="OnStopClicked" />
+                    </Grid>
+
+                    <Grid ColumnDefinitions="*,*" ColumnSpacing="10">
+                        <Button
+                            Text="清空"
+                            BackgroundColor="#667085"
+                            Clicked="OnClearClicked" />
+                        <Button
+                            Grid.Column="1"
+                            Text="保存"
+                            BackgroundColor="#667085"
+                            Clicked="OnSaveClicked" />
+                    </Grid>
+
+                    <Grid ColumnDefinitions="*,*" ColumnSpacing="10">
+                        <Button
+                            Text="设置"
+                            BackgroundColor="#344054"
+                            Clicked="OnSettingsClicked" />
+                        <Button
+                            x:Name="SubtitleWindowButton"
+                            Grid.Column="1"
+                            Text="打开字幕窗"
+                            BackgroundColor="#344054"
+                            Clicked="OnSubtitleWindowClicked" />
+                    </Grid>
+
+                    <Label
+                        x:Name="OutputPathLabel"
+                        Text=""
+                        FontSize="12"
+                        LineBreakMode="WordWrap"
+                        TextColor="#667085" />
+                </VerticalStackLayout>
+            </ScrollView>
+        </Border>
+
+        <Grid
+            Grid.Row="1"
+            Grid.Column="1"
+            RowDefinitions="*,Auto"
+            RowSpacing="12">
+            <Border
+                Padding="16"
+                Stroke="#D0D5DD"
+                StrokeShape="RoundRectangle 8"
+                BackgroundColor="#FFFFFF">
+                <Editor
+                    x:Name="TranscriptEditor"
+                    IsReadOnly="True"
+                    AutoSize="TextChanges"
+                    FontSize="18"
+                    TextColor="#101828"
+                    Placeholder="实时文字会显示在这里。" />
+            </Border>
+
+            <Border
+                Grid.Row="1"
+                Padding="14"
+                Stroke="#EAECF0"
+                StrokeShape="RoundRectangle 8"
+                BackgroundColor="#F9FAFB">
+                <Label
+                    x:Name="PartialLabel"
+                    Text="当前片段："
+                    FontSize="14"
+                    LineBreakMode="WordWrap"
+                    TextColor="#475467" />
+            </Border>
+        </Grid>
+    </Grid>
+</ContentPage>

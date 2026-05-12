@@ -1,0 +1,53 @@
+{
+  "Version": 1,
+  "WorkspaceRootPath": "C:\\Users\\ywhdt\\Desktop\\WindowsAiTranscriber\\",
+  "Documents": [
+    {
+      "AbsoluteMoniker": "D:0:0:{E3A3636F-1D1C-496C-ADB1-F702F5784297}|WindowsAiTranscriber.csproj|c:\\users\\ywhdt\\desktop\\windowsaitranscriber\\windowsaitranscriber.csproj||{04B8AB82-A572-4FEF-95CE-5222444B6B64}|",
+      "RelativeMoniker": "D:0:0:{E3A3636F-1D1C-496C-ADB1-F702F5784297}|WindowsAiTranscriber.csproj|solutionrelative:windowsaitranscriber.csproj||{04B8AB82-A572-4FEF-95CE-5222444B6B64}|"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{E3A3636F-1D1C-496C-ADB1-F702F5784297}|WindowsAiTranscriber.csproj|c:\\users\\ywhdt\\desktop\\windowsaitranscriber\\mainpage.xaml||{F11ACC28-31D1-4C80-A34B-F4E09D3D753C}",
+      "RelativeMoniker": "D:0:0:{E3A3636F-1D1C-496C-ADB1-F702F5784297}|WindowsAiTranscriber.csproj|solutionrelative:mainpage.xaml||{F11ACC28-31D1-4C80-A34B-F4E09D3D753C}"
+    }
+  ],
+  "DocumentGroupContainers": [
+    {
+      "Orientation": 0,
+      "VerticalTabListWidth": 256,
+      "DocumentGroups": [
+        {
+          "DockedWidth": 200,
+          "SelectedChildIndex": 0,
+          "Children": [
+            {
+              "$type": "Document",
+              "DocumentIndex": 0,
+              "Title": "WindowsAiTranscriber",
+              "DocumentMoniker": "C:\\Users\\ywhdt\\Desktop\\WindowsAiTranscriber\\WindowsAiTranscriber.csproj",
+              "RelativeDocumentMoniker": "WindowsAiTranscriber.csproj",
+              "ToolTip": "C:\\Users\\ywhdt\\Desktop\\WindowsAiTranscriber\\WindowsAiTranscriber.csproj",
+              "RelativeToolTip": "WindowsAiTranscriber.csproj",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000758|",
+              "WhenOpened": "2026-05-12T17:08:07.66Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 1,
+              "Title": "MainPage.xaml",
+              "DocumentMoniker": "C:\\Users\\ywhdt\\Desktop\\WindowsAiTranscriber\\MainPage.xaml",
+              "RelativeDocumentMoniker": "MainPage.xaml",
+              "ToolTip": "C:\\Users\\ywhdt\\Desktop\\WindowsAiTranscriber\\MainPage.xaml",
+              "RelativeToolTip": "MainPage.xaml",
+              "ViewState": "AgIAAC0AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.003549|",
+              "WhenOpened": "2026-05-12T17:00:00.697Z",
+              "EditorCaption": ""
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

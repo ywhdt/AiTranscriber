@@ -1,0 +1,111 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    x:Class="WindowsAiTranscriber.SettingsPage"
+    Title="设置"
+    BackgroundColor="#FFFFFF">
+
+    <Grid RowDefinitions="Auto,*" Padding="24" RowSpacing="18">
+        <Grid ColumnDefinitions="*,Auto">
+            <VerticalStackLayout Spacing="4">
+                <Label Text="设置" FontAttributes="Bold" FontSize="26" TextColor="#101828" />
+                <Label Text="调整分段策略和字幕悬浮窗显示效果。" TextColor="#667085" />
+            </VerticalStackLayout>
+            <Button
+                Grid.Column="1"
+                Text="关闭"
+                BackgroundColor="#667085"
+                Clicked="OnCloseClicked" />
+        </Grid>
+
+        <ScrollView Grid.Row="1">
+            <VerticalStackLayout Spacing="22">
+                <Border Padding="18" Stroke="#D0D5DD" StrokeShape="RoundRectangle 8" BackgroundColor="#F9FAFB">
+                    <VerticalStackLayout Spacing="16">
+						<Label Text="分段策略" FontAttributes="Bold" FontSize="18" TextColor="#101828" />
+
+						<VerticalStackLayout Spacing="6">
+							<Label Text="分段模式" TextColor="#344054" />
+							<Picker x:Name="SegmentationModePicker" SelectedIndexChanged="OnSegmentationModeChanged" />
+						</VerticalStackLayout>
+
+						<HorizontalStackLayout Spacing="8">
+							<CheckBox x:Name="AutoSaveCheckBox" CheckedChanged="OnAutoSaveChanged" />
+							<Label
+								Text="停止后自动保存转写结果"
+								VerticalOptions="Center"
+								TextColor="#344054" />
+						</HorizontalStackLayout>
+
+						<VerticalStackLayout Spacing="6">
+                            <Label x:Name="MaxSegmentLabel" TextColor="#344054" />
+                            <Slider x:Name="MaxSegmentSlider" Minimum="0.8" Maximum="6" ValueChanged="OnSliderChanged" />
+                        </VerticalStackLayout>
+
+                        <VerticalStackLayout Spacing="6">
+                            <Label x:Name="FixedSegmentLabel" TextColor="#344054" />
+                            <Slider x:Name="FixedSegmentSlider" Minimum="2" Maximum="15" ValueChanged="OnSliderChanged" />
+                        </VerticalStackLayout>
+
+                        <VerticalStackLayout Spacing="6">
+                            <Label x:Name="CinemaEarlyCommitLabel" TextColor="#344054" />
+                            <Slider x:Name="CinemaEarlyCommitSlider" Minimum="50" Maximum="100" ValueChanged="OnSliderChanged" />
+                        </VerticalStackLayout>
+
+                        <VerticalStackLayout Spacing="6">
+                            <Label x:Name="PreRollLabel" TextColor="#344054" />
+                            <Slider x:Name="PreRollSlider" Minimum="0" Maximum="1000" ValueChanged="OnSliderChanged" />
+                        </VerticalStackLayout>
+
+                        <VerticalStackLayout Spacing="6">
+                            <Label x:Name="SilenceCommitLabel" TextColor="#344054" />
+                            <Slider x:Name="SilenceCommitSlider" Minimum="200" Maximum="2000" ValueChanged="OnSliderChanged" />
+                        </VerticalStackLayout>
+
+                        <VerticalStackLayout Spacing="6">
+                            <Label x:Name="MinimumRmsLabel" TextColor="#344054" />
+                            <Slider x:Name="MinimumRmsSlider" Minimum="0.003" Maximum="0.05" ValueChanged="OnSliderChanged" />
+                        </VerticalStackLayout>
+
+                        <VerticalStackLayout Spacing="6">
+                            <Label x:Name="NoiseMultiplierLabel" TextColor="#344054" />
+                            <Slider x:Name="NoiseMultiplierSlider" Minimum="1.2" Maximum="6" ValueChanged="OnSliderChanged" />
+                        </VerticalStackLayout>
+                    </VerticalStackLayout>
+                </Border>
+
+                <Border Padding="18" Stroke="#D0D5DD" StrokeShape="RoundRectangle 8" BackgroundColor="#F9FAFB">
+                    <VerticalStackLayout Spacing="16">
+                        <Label Text="字幕悬浮窗" FontAttributes="Bold" FontSize="18" TextColor="#101828" />
+
+                        <VerticalStackLayout Spacing="6">
+                            <Label x:Name="SubtitleFontSizeLabel" TextColor="#344054" />
+                            <Slider x:Name="SubtitleFontSizeSlider" Minimum="18" Maximum="72" ValueChanged="OnSliderChanged" />
+                        </VerticalStackLayout>
+
+                        <VerticalStackLayout Spacing="6">
+                            <Label x:Name="SubtitleOpacityLabel" TextColor="#344054" />
+                            <Slider x:Name="SubtitleOpacitySlider" Minimum="0" Maximum="1" ValueChanged="OnSliderChanged" />
+                        </VerticalStackLayout>
+
+                        <VerticalStackLayout Spacing="6">
+                            <Label x:Name="SubtitleHoldLabel" TextColor="#344054" />
+                            <Slider x:Name="SubtitleHoldSlider" Minimum="0.2" Maximum="5" ValueChanged="OnSliderChanged" />
+                        </VerticalStackLayout>
+
+                        <VerticalStackLayout Spacing="6">
+                            <Label x:Name="SubtitleIdleClearLabel" TextColor="#344054" />
+                            <Slider x:Name="SubtitleIdleClearSlider" Minimum="1" Maximum="15" ValueChanged="OnSliderChanged" />
+                        </VerticalStackLayout>
+                    </VerticalStackLayout>
+                </Border>
+
+                <Grid ColumnDefinitions="*,*" ColumnSpacing="12">
+                    <Button Text="恢复默认" BackgroundColor="#667085" Clicked="OnResetClicked" />
+                    <Button Grid.Column="1" Text="保存" Clicked="OnSaveClicked" />
+                </Grid>
+            </VerticalStackLayout>
+        </ScrollView>
+    </Grid>
+</ContentPage>
