@@ -8,7 +8,7 @@ public partial class SettingsPage : ContentPage
 	private static readonly List<SegmentationModeOption> SegmentationModeOptions =
 	[
 		new("实时对话", AppSettings.RealtimeConversationMode),
-		new("影视字幕", AppSettings.CinemaSubtitleMode)
+		new("高精度字幕", AppSettings.CinemaSubtitleMode)
 	];
 
 	private static readonly List<NoiseReductionOption> NoiseReductionOptions =
@@ -50,9 +50,9 @@ public partial class SettingsPage : ContentPage
 
 	private void LoadSlidersFromSettings()
 	{
-		MaxSegmentSlider.Value = _settings.MaxSegmentSeconds;
-		FixedSegmentSlider.Value = _settings.FixedSegmentSeconds;
-		CinemaEarlyCommitSlider.Value = _settings.CinemaEarlyCommitPercent;
+		HighPrecisionTargetSlider.Value = _settings.HighPrecisionTargetWindowSeconds;
+		HighPrecisionMaxSlider.Value = _settings.HighPrecisionMaxWindowSeconds;
+		HighPrecisionOverlapSlider.Value = _settings.HighPrecisionOverlapSeconds;
 		PreRollSlider.Value = _settings.VadPreRollMilliseconds;
 		SilenceCommitSlider.Value = _settings.VadSilenceCommitMilliseconds;
 		MinimumRmsSlider.Value = _settings.VadMinimumSpeechRms;
@@ -70,9 +70,13 @@ public partial class SettingsPage : ContentPage
 		_settings.NoiseReductionMode = (NoiseReductionPicker.SelectedItem as NoiseReductionOption)?.Code ??
 			AppSettings.NoiseReductionOff;
 		_settings.AutoSaveTranscriptOnStop = AutoSaveCheckBox.IsChecked;
-		_settings.MaxSegmentSeconds = Math.Round(MaxSegmentSlider.Value, 1);
-		_settings.FixedSegmentSeconds = Math.Round(FixedSegmentSlider.Value, 1);
-		_settings.CinemaEarlyCommitPercent = Math.Round(CinemaEarlyCommitSlider.Value);
+		_settings.HighPrecisionTargetWindowSeconds = Math.Round(HighPrecisionTargetSlider.Value, 1);
+		_settings.HighPrecisionMaxWindowSeconds = Math.Round(Math.Max(
+			HighPrecisionMaxSlider.Value,
+			_settings.HighPrecisionTargetWindowSeconds + 0.5), 1);
+		_settings.HighPrecisionOverlapSeconds = Math.Round(Math.Min(
+			HighPrecisionOverlapSlider.Value,
+			Math.Max(0, _settings.HighPrecisionTargetWindowSeconds - 0.5)), 1);
 		_settings.VadPreRollMilliseconds = Math.Round(PreRollSlider.Value / 10) * 10;
 		_settings.VadSilenceCommitMilliseconds = Math.Round(SilenceCommitSlider.Value / 10) * 10;
 		_settings.VadMinimumSpeechRms = Math.Round(MinimumRmsSlider.Value, 3);
@@ -163,11 +167,11 @@ public partial class SettingsPage : ContentPage
 
 	private void UpdateLabels()
 	{
-		MaxSegmentLabel.Text = $"实时最长分段：{_settings.MaxSegmentSeconds:0.0} 秒";
-		FixedSegmentLabel.Text = $"影视提交间隔：{_settings.FixedSegmentSeconds:0.0} 秒";
-		CinemaEarlyCommitLabel.Text = $"影视提前提交：{_settings.CinemaEarlyCommitPercent:0}% 后遇到静音";
+		HighPrecisionTargetLabel.Text = $"高精度目标窗口：{_settings.HighPrecisionTargetWindowSeconds:0.0} 秒";
+		HighPrecisionMaxLabel.Text = $"高精度最长窗口：{_settings.HighPrecisionMaxWindowSeconds:0.0} 秒";
+		HighPrecisionOverlapLabel.Text = $"高精度重叠：{_settings.HighPrecisionOverlapSeconds:0.0} 秒";
 		PreRollLabel.Text = $"前置音频：{_settings.VadPreRollMilliseconds:0} ms";
-		SilenceCommitLabel.Text = $"静音提交：{_settings.VadSilenceCommitMilliseconds:0} ms";
+		SilenceCommitLabel.Text = $"长静音提交：{_settings.VadSilenceCommitMilliseconds:0} ms";
 		MinimumRmsLabel.Text = $"最低语音音量：{_settings.VadMinimumSpeechRms:0.000}";
 		NoiseMultiplierLabel.Text = $"噪声倍率：{_settings.VadNoiseMultiplier:0.0}";
 		SubtitleFontSizeLabel.Text = $"字幕字号：{_settings.SubtitleFontSize:0}";

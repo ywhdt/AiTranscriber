@@ -47,7 +47,16 @@
 
                     <VerticalStackLayout Spacing="6">
                         <Label Text="转写模型" TextColor="#344054" />
-                        <Picker x:Name="ModelPicker" />
+                        <Border
+                            Padding="12,10"
+                            Stroke="#D0D5DD"
+                            StrokeShape="RoundRectangle 8"
+                            BackgroundColor="#FFFFFF">
+                            <Label
+                                x:Name="ModelValueLabel"
+                                Text="gpt-realtime-whisper"
+                                TextColor="#101828" />
+                        </Border>
                     </VerticalStackLayout>
 
 					<VerticalStackLayout Spacing="6">

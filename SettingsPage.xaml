@@ -10,7 +10,7 @@
         <Grid ColumnDefinitions="*,Auto">
             <VerticalStackLayout Spacing="4">
                 <Label Text="设置" FontAttributes="Bold" FontSize="26" TextColor="#101828" />
-                <Label Text="调整分段策略和字幕悬浮窗显示效果。" TextColor="#667085" />
+                <Label Text="调整转写模式、VAD 和字幕悬浮窗显示效果。" TextColor="#667085" />
             </VerticalStackLayout>
             <Button
                 Grid.Column="1"
@@ -31,7 +31,7 @@
 						</VerticalStackLayout>
 
 						<VerticalStackLayout Spacing="6">
-							<Label Text="OpenAI 音频降噪" TextColor="#344054" />
+							<Label Text="OpenAI 实时音频降噪" TextColor="#344054" />
 							<Picker x:Name="NoiseReductionPicker" SelectedIndexChanged="OnNoiseReductionChanged" />
 						</VerticalStackLayout>
 
@@ -44,18 +44,18 @@
 						</HorizontalStackLayout>
 
 						<VerticalStackLayout Spacing="6">
-                            <Label x:Name="MaxSegmentLabel" TextColor="#344054" />
-                            <Slider x:Name="MaxSegmentSlider" Minimum="0.8" Maximum="6" ValueChanged="OnSliderChanged" />
+                            <Label x:Name="HighPrecisionTargetLabel" TextColor="#344054" />
+                            <Slider x:Name="HighPrecisionTargetSlider" Minimum="3" Maximum="10" ValueChanged="OnSliderChanged" />
                         </VerticalStackLayout>
 
                         <VerticalStackLayout Spacing="6">
-                            <Label x:Name="FixedSegmentLabel" TextColor="#344054" />
-                            <Slider x:Name="FixedSegmentSlider" Minimum="2" Maximum="15" ValueChanged="OnSliderChanged" />
+                            <Label x:Name="HighPrecisionMaxLabel" TextColor="#344054" />
+                            <Slider x:Name="HighPrecisionMaxSlider" Minimum="4" Maximum="15" ValueChanged="OnSliderChanged" />
                         </VerticalStackLayout>
 
                         <VerticalStackLayout Spacing="6">
-                            <Label x:Name="CinemaEarlyCommitLabel" TextColor="#344054" />
-                            <Slider x:Name="CinemaEarlyCommitSlider" Minimum="50" Maximum="100" ValueChanged="OnSliderChanged" />
+                            <Label x:Name="HighPrecisionOverlapLabel" TextColor="#344054" />
+                            <Slider x:Name="HighPrecisionOverlapSlider" Minimum="0" Maximum="3" ValueChanged="OnSliderChanged" />
                         </VerticalStackLayout>
 
                         <VerticalStackLayout Spacing="6">

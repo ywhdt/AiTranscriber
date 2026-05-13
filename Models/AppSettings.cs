@@ -36,9 +36,15 @@ public sealed class AppSettings
 
 	public double CinemaEarlyCommitPercent { get; set; } = 80.0;
 
+	public double HighPrecisionTargetWindowSeconds { get; set; } = 6.0;
+
+	public double HighPrecisionMaxWindowSeconds { get; set; } = 8.0;
+
+	public double HighPrecisionOverlapSeconds { get; set; } = 1.2;
+
 	public double VadPreRollMilliseconds { get; set; } = 300;
 
-	public double VadSilenceCommitMilliseconds { get; set; } = 650;
+	public double VadSilenceCommitMilliseconds { get; set; } = 1200;
 
 	public double VadMinimumSpeechRms { get; set; } = 0.012;
 
@@ -53,5 +59,8 @@ public sealed class AppSettings
 	public double SubtitleIdleClearSeconds { get; set; } = 3.0;
 
 	public bool UsesFixedSegmentMode =>
+		string.Equals(SegmentationMode, CinemaSubtitleMode, StringComparison.OrdinalIgnoreCase);
+
+	public bool UsesHighPrecisionSubtitleMode =>
 		string.Equals(SegmentationMode, CinemaSubtitleMode, StringComparison.OrdinalIgnoreCase);
 }

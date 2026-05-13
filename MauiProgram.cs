@@ -24,6 +24,7 @@ public static class MauiProgram
 		builder.Services.AddSingleton<TranscriptStore>();
 		builder.Services.AddSingleton<SubtitleOverlayService>();
 		builder.Services.AddSingleton<OpenAIRealtimeTranscriptionService>();
+		builder.Services.AddSingleton<OpenAIAudioTranscriptionService>();
 		builder.Services.AddSingleton<IAudioCaptureService, WindowsSystemAudioCaptureService>();
 		builder.Services.AddSingleton<MainPage>();
 

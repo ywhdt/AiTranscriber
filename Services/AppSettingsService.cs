@@ -14,6 +14,9 @@ public sealed class AppSettingsService
 	private const string MaxSegmentSecondsName = "vad_max_segment_seconds";
 	private const string FixedSegmentSecondsName = "fixed_segment_seconds";
 	private const string CinemaEarlyCommitPercentName = "cinema_early_commit_percent";
+	private const string HighPrecisionTargetWindowSecondsName = "high_precision_target_window_seconds";
+	private const string HighPrecisionMaxWindowSecondsName = "high_precision_max_window_seconds";
+	private const string HighPrecisionOverlapSecondsName = "high_precision_overlap_seconds";
 	private const string VadPreRollMillisecondsName = "vad_pre_roll_milliseconds";
 	private const string VadSilenceCommitMillisecondsName = "vad_silence_commit_milliseconds";
 	private const string VadMinimumSpeechRmsName = "vad_minimum_speech_rms";
@@ -37,8 +40,11 @@ public sealed class AppSettingsService
 			MaxSegmentSeconds = Preferences.Default.Get(MaxSegmentSecondsName, 2.0),
 			FixedSegmentSeconds = Preferences.Default.Get(FixedSegmentSecondsName, 6.0),
 			CinemaEarlyCommitPercent = Preferences.Default.Get(CinemaEarlyCommitPercentName, 80.0),
+			HighPrecisionTargetWindowSeconds = Preferences.Default.Get(HighPrecisionTargetWindowSecondsName, 6.0),
+			HighPrecisionMaxWindowSeconds = Preferences.Default.Get(HighPrecisionMaxWindowSecondsName, 8.0),
+			HighPrecisionOverlapSeconds = Preferences.Default.Get(HighPrecisionOverlapSecondsName, 1.2),
 			VadPreRollMilliseconds = Preferences.Default.Get(VadPreRollMillisecondsName, 300.0),
-			VadSilenceCommitMilliseconds = Preferences.Default.Get(VadSilenceCommitMillisecondsName, 650.0),
+			VadSilenceCommitMilliseconds = Preferences.Default.Get(VadSilenceCommitMillisecondsName, 1200.0),
 			VadMinimumSpeechRms = Preferences.Default.Get(VadMinimumSpeechRmsName, 0.012),
 			VadNoiseMultiplier = Preferences.Default.Get(VadNoiseMultiplierName, 3.0),
 			SubtitleBackgroundOpacity = Preferences.Default.Get(SubtitleBackgroundOpacityName, 0.72),
@@ -68,6 +74,9 @@ public sealed class AppSettingsService
 		Preferences.Default.Set(MaxSegmentSecondsName, settings.MaxSegmentSeconds);
 		Preferences.Default.Set(FixedSegmentSecondsName, settings.FixedSegmentSeconds);
 		Preferences.Default.Set(CinemaEarlyCommitPercentName, settings.CinemaEarlyCommitPercent);
+		Preferences.Default.Set(HighPrecisionTargetWindowSecondsName, settings.HighPrecisionTargetWindowSeconds);
+		Preferences.Default.Set(HighPrecisionMaxWindowSecondsName, settings.HighPrecisionMaxWindowSeconds);
+		Preferences.Default.Set(HighPrecisionOverlapSecondsName, settings.HighPrecisionOverlapSeconds);
 		Preferences.Default.Set(VadPreRollMillisecondsName, settings.VadPreRollMilliseconds);
 		Preferences.Default.Set(VadSilenceCommitMillisecondsName, settings.VadSilenceCommitMilliseconds);
 		Preferences.Default.Set(VadMinimumSpeechRmsName, settings.VadMinimumSpeechRms);

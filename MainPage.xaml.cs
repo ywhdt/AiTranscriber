@@ -1,4 +1,5 @@
 using System.Text;
+using System.Threading.Channels;
 using WindowsAiTranscriber.Models;
 using WindowsAiTranscriber.Services;
 
@@ -6,12 +7,6 @@ namespace WindowsAiTranscriber;
 
 public partial class MainPage : ContentPage
 {
-	private static readonly string[] ModelNames =
-	[
-		AppSettings.RealtimeWhisperModel,
-		AppSettings.Gpt4oTranscribeModel
-	];
-
 	private static readonly List<LanguageOption> LanguageOptions =
 	[
 		new("中文", "zh"),
@@ -19,49 +14,54 @@ public partial class MainPage : ContentPage
 		new("日语", "ja")
 	];
 
-	private const int VadSampleRate = 24000;
-	private const int MinimumCommitBytes = VadSampleRate * 2 / 10;
+	private const int AudioSampleRate = 24000;
+	private const int MinimumCommitBytes = AudioSampleRate * 2 / 10;
 
 	private readonly AppSettingsService _settingsService;
 	private readonly TranscriptStore _transcriptStore;
-	private readonly OpenAIRealtimeTranscriptionService _transcriptionService;
+	private readonly OpenAIRealtimeTranscriptionService _realtimeTranscriptionService;
+	private readonly OpenAIAudioTranscriptionService _audioTranscriptionService;
 	private readonly IAudioCaptureService _audioCaptureService;
 	private readonly SubtitleOverlayService _subtitleOverlayService;
 	private readonly SemaphoreSlim _audioPipelineLock = new(1, 1);
 	private readonly List<TranscriptSegment> _segments = [];
-	private readonly List<byte[]> _cinemaSegmentChunks = [];
 	private readonly StringBuilder _committedText = new();
 	private AppSettings _settings = new();
-	private LocalVoiceActivityDetector _voiceActivityDetector = CreateVoiceActivityDetector(new AppSettings());
+	private AppSettings? _sessionSettings;
+	private LocalVoiceActivityDetector _realtimeVoiceActivityDetector = CreateRealtimeVoiceActivityDetector(new AppSettings());
+	private HighPrecisionAudioSegmenter _highPrecisionSegmenter = CreateHighPrecisionAudioSegmenter(new AppSettings());
+	private Channel<HighPrecisionAudioSegment>? _highPrecisionChannel;
+	private Task? _highPrecisionWorkerTask;
 	private CancellationTokenSource? _sessionCts;
-	private int _cinemaSegmentBytes;
-	private int _hasUncommittedAudio;
+	private int _hasUncommittedRealtimeAudio;
+	private int _highPrecisionSegmentSequence;
 	private string _partialText = "";
+	private string _lastHighPrecisionText = "";
 	private bool _subtitleReceivedDeltaForCurrentSegment;
 
 	public MainPage(
 		AppSettingsService settingsService,
 		TranscriptStore transcriptStore,
-		OpenAIRealtimeTranscriptionService transcriptionService,
+		OpenAIRealtimeTranscriptionService realtimeTranscriptionService,
+		OpenAIAudioTranscriptionService audioTranscriptionService,
 		IAudioCaptureService audioCaptureService,
 		SubtitleOverlayService subtitleOverlayService)
 	{
 		InitializeComponent();
 		_settingsService = settingsService;
 		_transcriptStore = transcriptStore;
-		_transcriptionService = transcriptionService;
+		_realtimeTranscriptionService = realtimeTranscriptionService;
+		_audioTranscriptionService = audioTranscriptionService;
 		_audioCaptureService = audioCaptureService;
 		_subtitleOverlayService = subtitleOverlayService;
 
-		ModelPicker.ItemsSource = ModelNames;
-		ModelPicker.SelectedIndex = 0;
 		LanguagePicker.ItemsSource = LanguageOptions;
 		LanguagePicker.SelectedItem = LanguageOptions[0];
 
-		_transcriptionService.StatusChanged += OnTranscriptionStatusChanged;
-		_transcriptionService.ErrorOccurred += OnTranscriptionError;
-		_transcriptionService.PartialTranscriptReceived += OnPartialTranscriptReceived;
-		_transcriptionService.TranscriptCompleted += OnTranscriptCompleted;
+		_realtimeTranscriptionService.StatusChanged += OnTranscriptionStatusChanged;
+		_realtimeTranscriptionService.ErrorOccurred += OnTranscriptionError;
+		_realtimeTranscriptionService.PartialTranscriptReceived += OnPartialTranscriptReceived;
+		_realtimeTranscriptionService.TranscriptCompleted += OnTranscriptCompleted;
 		_audioCaptureService.CaptureError += OnAudioCaptureError;
 	}
 
@@ -70,10 +70,11 @@ public partial class MainPage : ContentPage
 		base.OnAppearing();
 
 		_settings = await _settingsService.LoadAsync();
+		_settings.Model = ModelForMode(_settings);
 		ApiKeyEntry.Text = _settings.ApiKey;
 		LanguagePicker.SelectedItem = FindLanguageOption(_settings.Language);
 		PromptEditor.Text = _settings.Prompt;
-		ModelPicker.SelectedItem = ModelNames.Contains(_settings.Model) ? _settings.Model : ModelNames[0];
+		UpdateModelDisplay();
 		_subtitleOverlayService.ApplySettings(_settings);
 		UpdateSubtitleWindowButton();
 	}
@@ -99,6 +100,7 @@ public partial class MainPage : ContentPage
 		_segments.Clear();
 		_committedText.Clear();
 		_partialText = "";
+		_lastHighPrecisionText = "";
 		_subtitleReceivedDeltaForCurrentSegment = false;
 		TranscriptEditor.Text = "";
 		PartialLabel.Text = "当前片段：";
@@ -116,9 +118,9 @@ public partial class MainPage : ContentPage
 		var settingsPage = new SettingsPage(_settingsService, _subtitleOverlayService);
 		settingsPage.SettingsSaved += (_, settings) =>
 		{
-			_settings = settings;
+			settings.Model = ModelForMode(settings);
 			_subtitleOverlayService.ApplySettings(settings);
-			_ = ApplyRuntimeVadSettingsAsync(settings);
+			UpdateSettingsDuringOrBetweenSessions(settings);
 		};
 
 		await Navigation.PushModalAsync(settingsPage);
@@ -157,22 +159,25 @@ public partial class MainPage : ContentPage
 
 		try
 		{
+			_settings.Model = ModelForMode(_settings);
 			await _settingsService.SaveAsync(_settings);
+
 			_sessionCts = new CancellationTokenSource();
+			_sessionSettings = CopySettings(_settings);
+			_partialText = "";
+			_lastHighPrecisionText = "";
+			_subtitleReceivedDeltaForCurrentSegment = false;
 			SetRunningState(isRunning: true);
-			SetStatus("正在连接 OpenAI 实时转写服务...");
+			UpdateModelDisplay();
 
-			await _transcriptionService.StartAsync(_settings, _sessionCts.Token);
-			LogSessionStrategy(_settings);
-
-			_voiceActivityDetector = CreateVoiceActivityDetector(_settings);
-			_voiceActivityDetector.Reset();
-			ClearCinemaSegmentBuffer();
-			Interlocked.Exchange(ref _hasUncommittedAudio, 0);
-			_audioCaptureService.AudioAvailable += OnAudioAvailable;
-			_audioCaptureService.Start();
-			SetStatus(BuildListeningStatus(_settings));
-			OutputPathLabel.Text = $"事件日志：{_transcriptionService.EventLogPath}";
+			if (_sessionSettings.UsesHighPrecisionSubtitleMode)
+			{
+				await StartHighPrecisionSessionAsync(_sessionSettings, _sessionCts.Token);
+			}
+			else
+			{
+				await StartRealtimeSessionAsync(_sessionSettings, _sessionCts.Token);
+			}
 		}
 		catch (Exception ex)
 		{
@@ -180,6 +185,46 @@ public partial class MainPage : ContentPage
 			await DisplayAlertAsync("启动失败", ex.Message, "确定");
 			SetStatus("启动失败。请检查 API Key、网络和系统音频设备。");
 		}
+	}
+
+	private async Task StartRealtimeSessionAsync(AppSettings settings, CancellationToken cancellationToken)
+	{
+		SetStatus("正在连接 OpenAI 实时转写服务...");
+		await _realtimeTranscriptionService.StartAsync(settings, cancellationToken);
+		LogSessionStrategy(settings);
+
+		_realtimeVoiceActivityDetector = CreateRealtimeVoiceActivityDetector(settings);
+		_realtimeVoiceActivityDetector.Reset();
+		Interlocked.Exchange(ref _hasUncommittedRealtimeAudio, 0);
+		_audioCaptureService.AudioAvailable += OnAudioAvailable;
+		_audioCaptureService.Start();
+		SetStatus(BuildListeningStatus(settings));
+		OutputPathLabel.Text = $"事件日志：{_realtimeTranscriptionService.EventLogPath}";
+	}
+
+	private Task StartHighPrecisionSessionAsync(AppSettings settings, CancellationToken cancellationToken)
+	{
+		SetStatus("正在启动高精度字幕模式...");
+		LogSessionStrategy(settings);
+
+		_highPrecisionSegmenter = CreateHighPrecisionAudioSegmenter(settings);
+		_highPrecisionSegmenter.Reset();
+		_highPrecisionSegmentSequence = 0;
+		_highPrecisionChannel = Channel.CreateUnbounded<HighPrecisionAudioSegment>(new UnboundedChannelOptions
+		{
+			SingleReader = true,
+			SingleWriter = false
+		});
+		_highPrecisionWorkerTask = Task.Run(
+			() => ProcessHighPrecisionQueueAsync(_highPrecisionChannel.Reader, cancellationToken),
+			CancellationToken.None);
+
+		_audioCaptureService.AudioAvailable += OnAudioAvailable;
+		_audioCaptureService.Start();
+		PartialLabel.Text = "高精度片段：等待首段结果";
+		SetStatus(BuildListeningStatus(settings));
+		OutputPathLabel.Text = "高精度字幕模式：音频块将通过 /v1/audio/transcriptions 转写。";
+		return Task.CompletedTask;
 	}
 
 	private async Task StopSessionAsync(bool saveTranscript)
@@ -190,17 +235,41 @@ public partial class MainPage : ContentPage
 		}
 
 		var cts = _sessionCts;
+		var sessionSettings = _sessionSettings ?? _settings;
 		_sessionCts = null;
 
 		_audioCaptureService.AudioAvailable -= OnAudioAvailable;
 		_audioCaptureService.Stop();
-		await CommitPendingAudioAsync(CancellationToken.None);
-		_voiceActivityDetector.Reset();
-		ClearCinemaSegmentBuffer();
+
+		if (sessionSettings.UsesHighPrecisionSubtitleMode)
+		{
+			await FlushPendingHighPrecisionAudioAsync("stop", CancellationToken.None);
+			_highPrecisionChannel?.Writer.TryComplete();
+			if (_highPrecisionWorkerTask is not null)
+			{
+				try
+				{
+					await _highPrecisionWorkerTask;
+				}
+				catch
+				{
+				}
+			}
+
+			_highPrecisionSegmenter.Reset();
+			_highPrecisionChannel = null;
+			_highPrecisionWorkerTask = null;
+		}
+		else
+		{
+			await CommitPendingRealtimeAudioAsync(CancellationToken.None);
+			_realtimeVoiceActivityDetector.Reset();
+			await _realtimeTranscriptionService.StopAsync();
+		}
 
 		cts.Cancel();
-		await _transcriptionService.StopAsync();
 		cts.Dispose();
+		_sessionSettings = null;
 
 		if (saveTranscript && _settings.AutoSaveTranscriptOnStop)
 		{
@@ -208,6 +277,7 @@ public partial class MainPage : ContentPage
 		}
 
 		SetRunningState(isRunning: false);
+		UpdateModelDisplay();
 		SetStatus("已停止。");
 	}
 
@@ -227,9 +297,36 @@ public partial class MainPage : ContentPage
 	{
 		_settings = await _settingsService.LoadAsync();
 		_settings.ApiKey = ApiKeyEntry.Text?.Trim() ?? "";
-		_settings.Model = ModelPicker.SelectedItem?.ToString() ?? ModelNames[0];
+		_settings.Model = ModelForMode(_settings);
 		_settings.Language = (LanguagePicker.SelectedItem as LanguageOption)?.Code ?? LanguageOptions[0].Code;
 		_settings.Prompt = PromptEditor.Text?.Trim() ?? "";
+		UpdateModelDisplay();
+	}
+
+	private void UpdateSettingsDuringOrBetweenSessions(AppSettings settings)
+	{
+		if (_sessionSettings is null)
+		{
+			_settings = settings;
+			UpdateModelDisplay();
+			return;
+		}
+
+		if (!string.Equals(
+			_sessionSettings.SegmentationMode,
+			settings.SegmentationMode,
+			StringComparison.OrdinalIgnoreCase))
+		{
+			_settings = settings;
+			UpdateModelDisplay();
+			SetStatus("分段模式将在下次开始时生效。当前会话继续使用启动时的模式。");
+			return;
+		}
+
+		_settings = settings;
+		_sessionSettings = CopySettings(settings);
+		UpdateModelDisplay();
+		_ = ApplyRuntimeSettingsAsync(_sessionSettings);
 	}
 
 	private void OnAudioAvailable(object? sender, AudioChunkEventArgs e)
@@ -251,20 +348,21 @@ public partial class MainPage : ContentPage
 			await _audioPipelineLock.WaitAsync(cancellationToken);
 			lockTaken = true;
 
-			if (_settings.UsesFixedSegmentMode)
+			var settings = _sessionSettings ?? _settings;
+			if (settings.UsesHighPrecisionSubtitleMode)
 			{
-				await ProcessCinemaSubtitleAudioAsync(pcm16Audio, cancellationToken);
+				ProcessHighPrecisionAudio(pcm16Audio);
 				return;
 			}
 
-			await ProcessRealtimeConversationAudioAsync(pcm16Audio, cancellationToken);
+			await ProcessRealtimeAudioAsync(pcm16Audio, cancellationToken);
 		}
 		catch (OperationCanceledException)
 		{
 		}
 		catch (Exception ex)
 		{
-			SetStatus($"发送音频失败：{ex.Message}");
+			SetStatus($"处理音频失败：{ex.Message}");
 		}
 		finally
 		{
@@ -275,186 +373,47 @@ public partial class MainPage : ContentPage
 		}
 	}
 
-	private async Task ProcessRealtimeConversationAudioAsync(byte[] pcm16Audio, CancellationToken cancellationToken)
+	private async Task ProcessRealtimeAudioAsync(byte[] pcm16Audio, CancellationToken cancellationToken)
 	{
-		var vadResult = _voiceActivityDetector.Process(pcm16Audio);
-		UpdateVadStatus(vadResult);
+		var vadResult = _realtimeVoiceActivityDetector.Process(pcm16Audio);
+		UpdateRealtimeVadStatus(vadResult);
 
 		if (vadResult.AudioToSend.Length == 0)
 		{
 			return;
 		}
 
-		await _transcriptionService.SendAudioAsync(vadResult.AudioToSend, cancellationToken);
-		Interlocked.Exchange(ref _hasUncommittedAudio, 1);
+		await _realtimeTranscriptionService.SendAudioAsync(vadResult.AudioToSend, cancellationToken);
+		Interlocked.Exchange(ref _hasUncommittedRealtimeAudio, 1);
 
 		if (vadResult.ShouldCommit)
 		{
-			await CommitPendingAudioCoreAsync(cancellationToken);
+			await CommitPendingRealtimeAudioCoreAsync(cancellationToken);
 		}
 	}
 
-	private async Task ProcessCinemaSubtitleAudioAsync(byte[] pcm16Audio, CancellationToken cancellationToken)
+	private void ProcessHighPrecisionAudio(byte[] pcm16Audio)
 	{
-		var vadResult = _voiceActivityDetector.Process(pcm16Audio);
-		UpdateVadStatus(vadResult);
-
-		if (vadResult.AudioToSend.Length == 0)
+		var result = _highPrecisionSegmenter.Process(pcm16Audio);
+		UpdateHighPrecisionStatus(result);
+		if (result.AudioToSubmit.Length > 0)
 		{
-			return;
-		}
-
-		var wasEmpty = _cinemaSegmentBytes == 0;
-		AppendCinemaSegmentAudio(vadResult.AudioToSend);
-
-		if (wasEmpty)
-		{
-			LogCinemaEvent("local.cinema_segment.started", vadResult, new
-			{
-				buffered_ms = Pcm16BytesToMilliseconds(_cinemaSegmentBytes),
-				target_ms = (int)Math.Round(_settings.FixedSegmentSeconds * 1000),
-				early_commit_percent = _settings.CinemaEarlyCommitPercent,
-				early_commit_after_ms = (int)Math.Round(_settings.FixedSegmentSeconds * _settings.CinemaEarlyCommitPercent * 10)
-			});
-		}
-
-		if (vadResult.ShouldCommit)
-		{
-			var reason = _cinemaSegmentBytes >= FixedSegmentByteCount(_settings)
-				? "fixed_interval"
-				: "silence_after_early_threshold";
-			await FlushCinemaSegmentCoreAsync(cancellationToken, reason, vadResult);
+			EnqueueHighPrecisionSegment(result);
 		}
 	}
 
-	private void AppendCinemaSegmentAudio(byte[] pcm16Audio)
-	{
-		var copy = new byte[pcm16Audio.Length];
-		Array.Copy(pcm16Audio, copy, pcm16Audio.Length);
-		_cinemaSegmentChunks.Add(copy);
-		_cinemaSegmentBytes += copy.Length;
-	}
-
-	private async Task FlushCinemaSegmentCoreAsync(
-		CancellationToken cancellationToken,
-		string reason,
-		LocalVadResult? vadResult = null)
-	{
-		if (_cinemaSegmentBytes == 0)
-		{
-			return;
-		}
-
-		if (_cinemaSegmentBytes < MinimumCommitBytes)
-		{
-			_transcriptionService.LogClientEvent("local.cinema_segment.discarded", new
-			{
-				reason,
-				buffered_ms = Pcm16BytesToMilliseconds(_cinemaSegmentBytes),
-				minimum_ms = 100
-			});
-			ClearCinemaSegmentBuffer();
-			return;
-		}
-
-		var audio = BuildCinemaSegmentAudio();
-		_transcriptionService.LogClientEvent("local.cinema_segment.sending", new
-		{
-			reason,
-			bytes = audio.Length,
-			duration_ms = Pcm16BytesToMilliseconds(audio.Length),
-			model = _settings.Model,
-			segmentation_mode = _settings.SegmentationMode,
-			target_ms = (int)Math.Round(_settings.FixedSegmentSeconds * 1000),
-			early_commit_percent = _settings.CinemaEarlyCommitPercent,
-			rms = vadResult?.Rms,
-			threshold = vadResult?.Threshold
-		});
-		SetStatus($"影视字幕片段已缓存 {Pcm16BytesToMilliseconds(audio.Length) / 1000.0:0.0} 秒，正在发送给模型。");
-
-		await _transcriptionService.SendAudioAsync(audio, cancellationToken);
-		Interlocked.Exchange(ref _hasUncommittedAudio, 1);
-		await CommitPendingAudioCoreAsync(cancellationToken);
-		_transcriptionService.LogClientEvent("local.cinema_segment.committed", new
-		{
-			reason,
-			bytes = audio.Length,
-			duration_ms = Pcm16BytesToMilliseconds(audio.Length)
-		});
-		ClearCinemaSegmentBuffer();
-	}
-
-	private byte[] BuildCinemaSegmentAudio()
-	{
-		var audio = new byte[_cinemaSegmentBytes];
-		var offset = 0;
-		foreach (var chunk in _cinemaSegmentChunks)
-		{
-			Array.Copy(chunk, 0, audio, offset, chunk.Length);
-			offset += chunk.Length;
-		}
-
-		return audio;
-	}
-
-	private void ClearCinemaSegmentBuffer()
-	{
-		_cinemaSegmentChunks.Clear();
-		_cinemaSegmentBytes = 0;
-	}
-
-	private void LogCinemaEvent(string type, LocalVadResult vadResult, object payload)
-	{
-		_transcriptionService.LogClientEvent(type, new
-		{
-			model = _settings.Model,
-			segmentation_mode = _settings.SegmentationMode,
-			rms = vadResult.Rms,
-			threshold = vadResult.Threshold,
-			payload
-		});
-	}
-
-	private void LogSessionStrategy(AppSettings settings)
-	{
-		_transcriptionService.LogClientEvent("local.session.strategy", new
-		{
-			model = settings.Model,
-			language = settings.Language,
-			segmentation_mode = settings.SegmentationMode,
-			noise_reduction = settings.NoiseReductionMode,
-			turn_detection = "null",
-			realtime_max_segment_seconds = settings.MaxSegmentSeconds,
-			cinema_fixed_segment_seconds = settings.FixedSegmentSeconds,
-			cinema_early_commit_percent = settings.CinemaEarlyCommitPercent,
-			auto_save_transcript_on_stop = settings.AutoSaveTranscriptOnStop
-		});
-	}
-
-	private static int Pcm16BytesToMilliseconds(int byteCount)
-	{
-		return (int)Math.Round(byteCount / (VadSampleRate * 2.0) * 1000);
-	}
-
-	private static int FixedSegmentByteCount(AppSettings settings)
-	{
-		return TimeSpan.FromSeconds(settings.FixedSegmentSeconds).ToPcm16ByteCount(VadSampleRate);
-	}
-
-	private async Task CommitPendingAudioAsync(CancellationToken cancellationToken)
+	private async Task FlushPendingHighPrecisionAudioAsync(string reason, CancellationToken cancellationToken)
 	{
 		var lockTaken = false;
 		try
 		{
 			await _audioPipelineLock.WaitAsync(cancellationToken);
 			lockTaken = true;
-
-			if (_settings.UsesFixedSegmentMode)
+			var result = _highPrecisionSegmenter.Flush(reason);
+			if (result.AudioToSubmit.Length > 0)
 			{
-				await FlushCinemaSegmentCoreAsync(cancellationToken, "stop");
+				EnqueueHighPrecisionSegment(result);
 			}
-
-			await CommitPendingAudioCoreAsync(cancellationToken);
 		}
 		finally
 		{
@@ -465,16 +424,100 @@ public partial class MainPage : ContentPage
 		}
 	}
 
-	private async Task CommitPendingAudioCoreAsync(CancellationToken cancellationToken)
+	private void EnqueueHighPrecisionSegment(HighPrecisionSegmenterResult result)
 	{
-		if (Interlocked.Exchange(ref _hasUncommittedAudio, 0) == 0)
+		if (result.AudioToSubmit.Length < MinimumCommitBytes)
+		{
+			return;
+		}
+
+		var channel = _highPrecisionChannel;
+		var settings = CopySettings(_sessionSettings ?? _settings);
+		var segment = new HighPrecisionAudioSegment(
+			Interlocked.Increment(ref _highPrecisionSegmentSequence),
+			result.AudioToSubmit,
+			result.Reason,
+			result.Duration,
+			settings);
+
+		if (channel?.Writer.TryWrite(segment) == true)
+		{
+			SetStatus($"高精度字幕已排队 {segment.Duration.TotalSeconds:0.0} 秒音频。");
+		}
+	}
+
+	private async Task ProcessHighPrecisionQueueAsync(
+		ChannelReader<HighPrecisionAudioSegment> reader,
+		CancellationToken cancellationToken)
+	{
+		try
+		{
+			await foreach (var segment in reader.ReadAllAsync(cancellationToken))
+			{
+				try
+				{
+					SetStatus($"高精度字幕正在转写第 {segment.Sequence} 段（{segment.Duration.TotalSeconds:0.0} 秒）。");
+					var text = await _audioTranscriptionService.TranscribeAsync(
+						segment.Audio,
+						segment.Settings,
+						cancellationToken);
+					text = TrimHighPrecisionOverlap(text);
+					if (string.IsNullOrWhiteSpace(text))
+					{
+						continue;
+					}
+
+					AddCompletedTranscript(new TranscriptSegment
+					{
+						StartedAt = DateTimeOffset.Now,
+						Text = text
+					}, appendToSubtitle: true);
+					_lastHighPrecisionText = text;
+					SetStatus($"高精度字幕第 {segment.Sequence} 段完成。");
+				}
+				catch (OperationCanceledException)
+				{
+					throw;
+				}
+				catch (Exception ex)
+				{
+					SetStatus($"高精度字幕第 {segment.Sequence} 段失败：{ex.Message}");
+				}
+			}
+		}
+		catch (OperationCanceledException)
+		{
+		}
+	}
+
+	private async Task CommitPendingRealtimeAudioAsync(CancellationToken cancellationToken)
+	{
+		var lockTaken = false;
+		try
+		{
+			await _audioPipelineLock.WaitAsync(cancellationToken);
+			lockTaken = true;
+			await CommitPendingRealtimeAudioCoreAsync(cancellationToken);
+		}
+		finally
+		{
+			if (lockTaken)
+			{
+				_audioPipelineLock.Release();
+			}
+		}
+	}
+
+	private async Task CommitPendingRealtimeAudioCoreAsync(CancellationToken cancellationToken)
+	{
+		if (Interlocked.Exchange(ref _hasUncommittedRealtimeAudio, 0) == 0)
 		{
 			return;
 		}
 
 		try
 		{
-			await _transcriptionService.CommitAudioAsync(cancellationToken);
+			await _realtimeTranscriptionService.CommitAudioAsync(cancellationToken);
 		}
 		catch (OperationCanceledException)
 		{
@@ -486,20 +529,28 @@ public partial class MainPage : ContentPage
 		}
 	}
 
-	private void UpdateVadStatus(LocalVadResult vadResult)
+	private void UpdateRealtimeVadStatus(LocalVadResult vadResult)
 	{
 		switch (vadResult.State)
 		{
 			case LocalVadState.SpeechStarted:
-				SetStatus(_settings.UsesFixedSegmentMode
-					? "本地 VAD 检测到声音，开始缓存影视字幕音频。"
-					: "本地 VAD 检测到声音，开始发送音频。");
+				SetStatus("本地 VAD 检测到声音，开始发送完整语音段。");
 				break;
 			case LocalVadState.Commit:
-				var message = _settings.UsesFixedSegmentMode
-					? $"影视字幕片段已缓存满。音量 {vadResult.Rms:0.000} / 阈值 {vadResult.Threshold:0.000}"
-					: $"本地 VAD 已提交一段音频。音量 {vadResult.Rms:0.000} / 阈值 {vadResult.Threshold:0.000}";
-				SetStatus(message);
+				SetStatus($"检测到长静音，已提交完整语音段。音量 {vadResult.Rms:0.000} / 阈值 {vadResult.Threshold:0.000}");
+				break;
+		}
+	}
+
+	private void UpdateHighPrecisionStatus(HighPrecisionSegmenterResult result)
+	{
+		switch (result.State)
+		{
+			case HighPrecisionSegmenterState.SpeechStarted:
+				SetStatus("高精度字幕检测到声音，开始缓存音频窗口。");
+				break;
+			case HighPrecisionSegmenterState.Commit:
+				SetStatus($"高精度字幕窗口已切分：{result.Reason}，{result.Duration.TotalSeconds:0.0} 秒。");
 				break;
 		}
 	}
@@ -528,21 +579,34 @@ public partial class MainPage : ContentPage
 			return;
 		}
 
-		_segments.Add(segment);
-		if (!_subtitleReceivedDeltaForCurrentSegment)
-		{
-			_subtitleOverlayService.AppendText(segment.Text.Trim());
-		}
-
-		_committedText.Append('[')
-			.Append(segment.StartedAt.ToLocalTime().ToString("HH:mm:ss"))
-			.Append("] ")
-			.AppendLine(segment.Text.Trim());
+		AddCompletedTranscript(segment, appendToSubtitle: !_subtitleReceivedDeltaForCurrentSegment);
 		_partialText = "";
 		_subtitleReceivedDeltaForCurrentSegment = false;
 
 		MainThread.BeginInvokeOnMainThread(() =>
 		{
+			PartialLabel.Text = "当前片段：";
+			RefreshTranscriptText();
+		});
+	}
+
+	private void AddCompletedTranscript(TranscriptSegment segment, bool appendToSubtitle)
+	{
+		_segments.Add(segment);
+		var text = segment.Text.Trim();
+		if (appendToSubtitle)
+		{
+			_subtitleOverlayService.AppendText(text);
+		}
+
+		_committedText.Append('[')
+			.Append(segment.StartedAt.ToLocalTime().ToString("HH:mm:ss"))
+			.Append("] ")
+			.AppendLine(text);
+
+		MainThread.BeginInvokeOnMainThread(() =>
+		{
+			_partialText = "";
 			PartialLabel.Text = "当前片段：";
 			RefreshTranscriptText();
 		});
@@ -579,7 +643,6 @@ public partial class MainPage : ContentPage
 		StartButton.IsEnabled = !isRunning;
 		StopButton.IsEnabled = isRunning;
 		ApiKeyEntry.IsEnabled = !isRunning;
-		ModelPicker.IsEnabled = !isRunning;
 		LanguagePicker.IsEnabled = !isRunning;
 		PromptEditor.IsEnabled = !isRunning;
 	}
@@ -594,25 +657,39 @@ public partial class MainPage : ContentPage
 		SubtitleWindowButton.Text = _subtitleOverlayService.IsOpen ? "关闭字幕窗" : "打开字幕窗";
 	}
 
-	private async Task ApplyRuntimeVadSettingsAsync(AppSettings settings)
+	private void UpdateModelDisplay()
+	{
+		var settings = _sessionSettings ?? _settings;
+		ModelValueLabel.Text = ModelForMode(settings);
+	}
+
+	private async Task ApplyRuntimeSettingsAsync(AppSettings settings)
 	{
 		var lockTaken = false;
 		try
 		{
 			await _audioPipelineLock.WaitAsync();
 			lockTaken = true;
-			if (_cinemaSegmentBytes > 0)
+
+			if (settings.UsesHighPrecisionSubtitleMode)
 			{
-				await FlushCinemaSegmentCoreAsync(CancellationToken.None, "settings_changed");
+				var pending = _highPrecisionSegmenter.Flush("settings_changed");
+				if (pending.AudioToSubmit.Length > 0)
+				{
+					EnqueueHighPrecisionSegment(pending);
+				}
+
+				_highPrecisionSegmenter = CreateHighPrecisionAudioSegmenter(settings);
+				return;
 			}
 
-			await CommitPendingAudioCoreAsync(CancellationToken.None);
-			_voiceActivityDetector = CreateVoiceActivityDetector(settings);
-			await _transcriptionService.UpdateSessionAsync(settings, CancellationToken.None);
+			await CommitPendingRealtimeAudioCoreAsync(CancellationToken.None);
+			_realtimeVoiceActivityDetector = CreateRealtimeVoiceActivityDetector(settings);
+			await _realtimeTranscriptionService.UpdateSessionAsync(settings, CancellationToken.None);
 		}
 		catch (Exception ex)
 		{
-			SetStatus($"应用 VAD 设置失败：{ex.Message}");
+			SetStatus($"应用运行设置失败：{ex.Message}");
 		}
 		finally
 		{
@@ -623,41 +700,62 @@ public partial class MainPage : ContentPage
 		}
 	}
 
-	private string LastCompletedSubtitleText()
+	private void LogSessionStrategy(AppSettings settings)
 	{
-		return _segments.Count == 0 ? "" : _segments[^1].Text;
+		_realtimeTranscriptionService.LogClientEvent("local.session.strategy", new
+		{
+			model = ModelForMode(settings),
+			language = settings.Language,
+			segmentation_mode = settings.SegmentationMode,
+			noise_reduction = settings.NoiseReductionMode,
+			turn_detection = settings.UsesHighPrecisionSubtitleMode ? "audio_transcriptions" : "local_long_silence",
+			realtime_long_silence_ms = settings.VadSilenceCommitMilliseconds,
+			high_precision_target_seconds = settings.HighPrecisionTargetWindowSeconds,
+			high_precision_max_seconds = settings.HighPrecisionMaxWindowSeconds,
+			high_precision_overlap_seconds = settings.HighPrecisionOverlapSeconds,
+			auto_save_transcript_on_stop = settings.AutoSaveTranscriptOnStop
+		});
 	}
 
-	private static LocalVoiceActivityDetector CreateVoiceActivityDetector(AppSettings settings)
+	private static LocalVoiceActivityDetector CreateRealtimeVoiceActivityDetector(AppSettings settings)
 	{
-		var maxSegmentSeconds = settings.UsesFixedSegmentMode
-			? settings.FixedSegmentSeconds
-			: settings.MaxSegmentSeconds;
-		var minimumSilenceCommitSeconds = settings.UsesFixedSegmentMode
-			? settings.FixedSegmentSeconds * Math.Clamp(settings.CinemaEarlyCommitPercent, 50, 100) / 100.0
-			: 0;
-
 		return new LocalVoiceActivityDetector(new LocalVadOptions(
-			VadSampleRate,
+			AudioSampleRate,
 			settings.VadMinimumSpeechRms,
 			settings.VadNoiseMultiplier,
 			TimeSpan.FromMilliseconds(settings.VadPreRollMilliseconds),
 			TimeSpan.FromMilliseconds(settings.VadSilenceCommitMilliseconds),
-			TimeSpan.FromSeconds(minimumSilenceCommitSeconds),
-			TimeSpan.FromSeconds(maxSegmentSeconds),
+			TimeSpan.Zero,
+			TimeSpan.FromHours(1),
 			true));
+	}
+
+	private static HighPrecisionAudioSegmenter CreateHighPrecisionAudioSegmenter(AppSettings settings)
+	{
+		var targetSeconds = Math.Clamp(settings.HighPrecisionTargetWindowSeconds, 3.0, 10.0);
+		var maxSeconds = Math.Clamp(settings.HighPrecisionMaxWindowSeconds, targetSeconds + 0.5, 15.0);
+		var overlapSeconds = Math.Clamp(settings.HighPrecisionOverlapSeconds, 0, Math.Max(0, targetSeconds - 0.5));
+
+		return new HighPrecisionAudioSegmenter(new HighPrecisionAudioSegmenterOptions(
+			AudioSampleRate,
+			settings.VadMinimumSpeechRms,
+			settings.VadNoiseMultiplier,
+			TimeSpan.FromMilliseconds(settings.VadPreRollMilliseconds),
+			TimeSpan.FromMilliseconds(settings.VadSilenceCommitMilliseconds),
+			TimeSpan.FromSeconds(targetSeconds),
+			TimeSpan.FromSeconds(maxSeconds),
+			TimeSpan.FromSeconds(overlapSeconds)));
 	}
 
 	private static string BuildListeningStatus(AppSettings settings)
 	{
-		var modeName = settings.UsesFixedSegmentMode ? "影视字幕" : "实时对话";
 		var noiseReductionName = NoiseReductionDisplayName(settings.NoiseReductionMode);
-		if (settings.UsesFixedSegmentMode)
+		if (settings.UsesHighPrecisionSubtitleMode)
 		{
-			return $"正在监听电脑系统音频。模型 {settings.Model}；{modeName}；降噪 {noiseReductionName}；turn_detection=null；本地缓存最多 {settings.FixedSegmentSeconds:0.#} 秒，{settings.CinemaEarlyCommitPercent:0}% 后遇到静音会提前发送。";
+			return $"正在监听电脑系统音频。模型 {AppSettings.Gpt4oTranscribeModel}；高精度字幕；目标窗口 {settings.HighPrecisionTargetWindowSeconds:0.#} 秒，最长 {settings.HighPrecisionMaxWindowSeconds:0.#} 秒，重叠 {settings.HighPrecisionOverlapSeconds:0.#} 秒。";
 		}
 
-		return $"正在监听电脑系统音频。模型 {settings.Model}；{modeName}；降噪 {noiseReductionName}；turn_detection=null；静音断句，最长 {settings.MaxSegmentSeconds:0.#} 秒提交。";
+		return $"正在监听电脑系统音频。模型 {AppSettings.RealtimeWhisperModel}；实时对话；降噪 {noiseReductionName}；长静音 {settings.VadSilenceCommitMilliseconds:0} ms 后提交。";
 	}
 
 	private static string NoiseReductionDisplayName(string? mode)
@@ -670,11 +768,77 @@ public partial class MainPage : ContentPage
 		};
 	}
 
+	private static string ModelForMode(AppSettings settings)
+	{
+		return settings.UsesHighPrecisionSubtitleMode
+			? AppSettings.Gpt4oTranscribeModel
+			: AppSettings.RealtimeWhisperModel;
+	}
+
+	private string TrimHighPrecisionOverlap(string text)
+	{
+		var cleaned = TranscriptionTextCleaner.CleanCompleted(text).Trim();
+		if (string.IsNullOrWhiteSpace(cleaned) || string.IsNullOrWhiteSpace(_lastHighPrecisionText))
+		{
+			return cleaned;
+		}
+
+		var previous = _lastHighPrecisionText.Trim();
+		var maxOverlap = Math.Min(80, Math.Min(previous.Length, cleaned.Length));
+		for (var length = maxOverlap; length >= 6; length--)
+		{
+			var suffix = previous[^length..];
+			var prefix = cleaned[..length];
+			if (string.Equals(suffix, prefix, StringComparison.OrdinalIgnoreCase))
+			{
+				return cleaned[length..].TrimStart();
+			}
+		}
+
+		return cleaned;
+	}
+
+	private static AppSettings CopySettings(AppSettings settings)
+	{
+		var copy = new AppSettings
+		{
+			ApiKey = settings.ApiKey,
+			Model = ModelForMode(settings),
+			Language = settings.Language,
+			Prompt = settings.Prompt,
+			SegmentationMode = settings.SegmentationMode,
+			NoiseReductionMode = settings.NoiseReductionMode,
+			AutoSaveTranscriptOnStop = settings.AutoSaveTranscriptOnStop,
+			MaxSegmentSeconds = settings.MaxSegmentSeconds,
+			FixedSegmentSeconds = settings.FixedSegmentSeconds,
+			CinemaEarlyCommitPercent = settings.CinemaEarlyCommitPercent,
+			HighPrecisionTargetWindowSeconds = settings.HighPrecisionTargetWindowSeconds,
+			HighPrecisionMaxWindowSeconds = settings.HighPrecisionMaxWindowSeconds,
+			HighPrecisionOverlapSeconds = settings.HighPrecisionOverlapSeconds,
+			VadPreRollMilliseconds = settings.VadPreRollMilliseconds,
+			VadSilenceCommitMilliseconds = settings.VadSilenceCommitMilliseconds,
+			VadMinimumSpeechRms = settings.VadMinimumSpeechRms,
+			VadNoiseMultiplier = settings.VadNoiseMultiplier,
+			SubtitleBackgroundOpacity = settings.SubtitleBackgroundOpacity,
+			SubtitleFontSize = settings.SubtitleFontSize,
+			SubtitleLineHoldSeconds = settings.SubtitleLineHoldSeconds,
+			SubtitleIdleClearSeconds = settings.SubtitleIdleClearSeconds
+		};
+		return copy;
+	}
+
 	private static LanguageOption FindLanguageOption(string? languageCode)
 	{
 		return LanguageOptions.FirstOrDefault(option =>
 			string.Equals(option.Code, languageCode?.Trim(), StringComparison.OrdinalIgnoreCase)) ?? LanguageOptions[0];
 	}
+
+	private sealed record HighPrecisionAudioSegment(
+		int Sequence,
+		byte[] Audio,
+		string Reason,
+		TimeSpan Duration,
+		AppSettings Settings);
 
 	private sealed class LanguageOption(string label, string code)
 	{
