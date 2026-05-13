@@ -61,7 +61,7 @@ dotnet run --project WindowsAiTranscriber.csproj -f net10.0-windows10.0.19041.0
 - `artifacts\WindowsAiTranscriber-local\WindowsAiTranscriber.exe`
 - `artifacts\WindowsAiTranscriber-local.zip`
 
-发布脚本默认使用 `Release` 和 `win-x64`，并设置 `WindowsPackageType=None`、`WindowsAppSDKSelfContained=true`。把整个 `WindowsAiTranscriber-local` 文件夹复制到任意位置后，运行里面的 `WindowsAiTranscriber.exe` 即可。
+发布脚本默认使用 `Release` 和 `win-x64`，并设置 `WindowsPackageType=None`、`WindowsAppSDKSelfContained=true`、`--self-contained true`。把整个 `WindowsAiTranscriber-local` 文件夹复制到任意位置后，运行里面的 `WindowsAiTranscriber.exe` 即可。
 
 如果需要双击安装、开始菜单入口和卸载入口，可以后续改为 MSIX 安装包。MSIX 必须签名；本机测试可使用自签证书，正式分发应使用受信任的代码签名方式。
 

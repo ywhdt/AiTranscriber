@@ -30,6 +30,11 @@
 							<Picker x:Name="SegmentationModePicker" SelectedIndexChanged="OnSegmentationModeChanged" />
 						</VerticalStackLayout>
 
+						<VerticalStackLayout Spacing="6">
+							<Label Text="OpenAI 音频降噪" TextColor="#344054" />
+							<Picker x:Name="NoiseReductionPicker" SelectedIndexChanged="OnNoiseReductionChanged" />
+						</VerticalStackLayout>
+
 						<HorizontalStackLayout Spacing="8">
 							<CheckBox x:Name="AutoSaveCheckBox" CheckedChanged="OnAutoSaveChanged" />
 							<Label

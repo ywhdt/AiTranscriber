@@ -1,17 +1,13 @@
 using System.Net.WebSockets;
 using System.Text;
 using System.Text.Json;
-using System.Text.Json.Serialization;
 using WindowsAiTranscriber.Models;
 
 namespace WindowsAiTranscriber.Services;
 
 public sealed class OpenAIRealtimeTranscriptionService : IAsyncDisposable
 {
-	private static readonly JsonSerializerOptions JsonOptions = new()
-	{
-		DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
-	};
+	private static readonly JsonSerializerOptions JsonOptions = new();
 
 	private readonly SemaphoreSlim _sendLock = new(1, 1);
 	private readonly HashSet<string> _completedItemIds = [];
@@ -64,6 +60,11 @@ public sealed class OpenAIRealtimeTranscriptionService : IAsyncDisposable
 
 		await SendSessionUpdateAsync(settings, cancellationToken);
 		StatusChanged?.Invoke(this, "实时转写连接已建立。");
+	}
+
+	public Task UpdateSessionAsync(AppSettings settings, CancellationToken cancellationToken)
+	{
+		return IsConnected ? SendSessionUpdateAsync(settings, cancellationToken) : Task.CompletedTask;
 	}
 
 	public async Task SendAudioAsync(byte[] pcm16Audio, CancellationToken cancellationToken)
@@ -136,6 +137,7 @@ public sealed class OpenAIRealtimeTranscriptionService : IAsyncDisposable
 	private Task SendSessionUpdateAsync(AppSettings settings, CancellationToken cancellationToken)
 	{
 		var transcription = BuildTranscriptionConfig(settings);
+		var noiseReduction = BuildNoiseReductionConfig(settings.NoiseReductionMode);
 
 		return SendJsonAsync(new
 		{
@@ -154,10 +156,7 @@ public sealed class OpenAIRealtimeTranscriptionService : IAsyncDisposable
 						},
 						transcription,
 						turn_detection = (object?)null,
-						noise_reduction = new
-						{
-							type = "near_field"
-						}
+						noise_reduction = noiseReduction
 					}
 				}
 			}
@@ -182,6 +181,27 @@ public sealed class OpenAIRealtimeTranscriptionService : IAsyncDisposable
 		}
 
 		return transcription;
+	}
+
+	private static object? BuildNoiseReductionConfig(string? mode)
+	{
+		if (string.Equals(mode?.Trim(), AppSettings.NoiseReductionNearField, StringComparison.OrdinalIgnoreCase))
+		{
+			return new
+			{
+				type = AppSettings.NoiseReductionNearField
+			};
+		}
+
+		if (string.Equals(mode?.Trim(), AppSettings.NoiseReductionFarField, StringComparison.OrdinalIgnoreCase))
+		{
+			return new
+			{
+				type = AppSettings.NoiseReductionFarField
+			};
+		}
+
+		return null;
 	}
 
 	private async Task SendJsonAsync(object payload, CancellationToken cancellationToken)

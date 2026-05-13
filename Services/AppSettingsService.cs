@@ -9,6 +9,7 @@ public sealed class AppSettingsService
 	private const string LanguageName = "transcription_language";
 	private const string PromptName = "transcription_prompt";
 	private const string SegmentationModeName = "segmentation_mode";
+	private const string NoiseReductionModeName = "noise_reduction_mode";
 	private const string AutoSaveTranscriptOnStopName = "auto_save_transcript_on_stop";
 	private const string MaxSegmentSecondsName = "vad_max_segment_seconds";
 	private const string FixedSegmentSecondsName = "fixed_segment_seconds";
@@ -31,6 +32,7 @@ public sealed class AppSettingsService
 			Language = Preferences.Default.Get(LanguageName, "zh"),
 			Prompt = Preferences.Default.Get(PromptName, ""),
 			SegmentationMode = Preferences.Default.Get(SegmentationModeName, AppSettings.RealtimeConversationMode),
+			NoiseReductionMode = Preferences.Default.Get(NoiseReductionModeName, AppSettings.NoiseReductionOff),
 			AutoSaveTranscriptOnStop = Preferences.Default.Get(AutoSaveTranscriptOnStopName, true),
 			MaxSegmentSeconds = Preferences.Default.Get(MaxSegmentSecondsName, 2.0),
 			FixedSegmentSeconds = Preferences.Default.Get(FixedSegmentSecondsName, 6.0),
@@ -61,6 +63,7 @@ public sealed class AppSettingsService
 		Preferences.Default.Set(LanguageName, settings.Language);
 		Preferences.Default.Set(PromptName, settings.Prompt);
 		Preferences.Default.Set(SegmentationModeName, settings.SegmentationMode);
+		Preferences.Default.Set(NoiseReductionModeName, settings.NoiseReductionMode);
 		Preferences.Default.Set(AutoSaveTranscriptOnStopName, settings.AutoSaveTranscriptOnStop);
 		Preferences.Default.Set(MaxSegmentSecondsName, settings.MaxSegmentSeconds);
 		Preferences.Default.Set(FixedSegmentSecondsName, settings.FixedSegmentSeconds);

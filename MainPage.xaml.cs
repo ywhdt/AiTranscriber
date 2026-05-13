@@ -422,6 +422,7 @@ public partial class MainPage : ContentPage
 			model = settings.Model,
 			language = settings.Language,
 			segmentation_mode = settings.SegmentationMode,
+			noise_reduction = settings.NoiseReductionMode,
 			turn_detection = "null",
 			realtime_max_segment_seconds = settings.MaxSegmentSeconds,
 			cinema_fixed_segment_seconds = settings.FixedSegmentSeconds,
@@ -607,6 +608,7 @@ public partial class MainPage : ContentPage
 
 			await CommitPendingAudioCoreAsync(CancellationToken.None);
 			_voiceActivityDetector = CreateVoiceActivityDetector(settings);
+			await _transcriptionService.UpdateSessionAsync(settings, CancellationToken.None);
 		}
 		catch (Exception ex)
 		{
@@ -649,12 +651,23 @@ public partial class MainPage : ContentPage
 	private static string BuildListeningStatus(AppSettings settings)
 	{
 		var modeName = settings.UsesFixedSegmentMode ? "影视字幕" : "实时对话";
+		var noiseReductionName = NoiseReductionDisplayName(settings.NoiseReductionMode);
 		if (settings.UsesFixedSegmentMode)
 		{
-			return $"正在监听电脑系统音频。模型 {settings.Model}；{modeName}；turn_detection=null；本地缓存最多 {settings.FixedSegmentSeconds:0.#} 秒，{settings.CinemaEarlyCommitPercent:0}% 后遇到静音会提前发送。";
+			return $"正在监听电脑系统音频。模型 {settings.Model}；{modeName}；降噪 {noiseReductionName}；turn_detection=null；本地缓存最多 {settings.FixedSegmentSeconds:0.#} 秒，{settings.CinemaEarlyCommitPercent:0}% 后遇到静音会提前发送。";
 		}
 
-		return $"正在监听电脑系统音频。模型 {settings.Model}；{modeName}；turn_detection=null；静音断句，最长 {settings.MaxSegmentSeconds:0.#} 秒提交。";
+		return $"正在监听电脑系统音频。模型 {settings.Model}；{modeName}；降噪 {noiseReductionName}；turn_detection=null；静音断句，最长 {settings.MaxSegmentSeconds:0.#} 秒提交。";
+	}
+
+	private static string NoiseReductionDisplayName(string? mode)
+	{
+		return mode switch
+		{
+			AppSettings.NoiseReductionNearField => "近场",
+			AppSettings.NoiseReductionFarField => "远场",
+			_ => "关闭"
+		};
 	}
 
 	private static LanguageOption FindLanguageOption(string? languageCode)

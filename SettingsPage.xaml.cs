@@ -11,6 +11,13 @@ public partial class SettingsPage : ContentPage
 		new("影视字幕", AppSettings.CinemaSubtitleMode)
 	];
 
+	private static readonly List<NoiseReductionOption> NoiseReductionOptions =
+	[
+		new("关闭（系统音频推荐）", AppSettings.NoiseReductionOff),
+		new("近场麦克风", AppSettings.NoiseReductionNearField),
+		new("远场麦克风", AppSettings.NoiseReductionFarField)
+	];
+
 	private readonly AppSettingsService _settingsService;
 	private readonly SubtitleOverlayService _subtitleOverlayService;
 	private AppSettings _settings = new();
@@ -24,6 +31,7 @@ public partial class SettingsPage : ContentPage
 		_settingsService = settingsService;
 		_subtitleOverlayService = subtitleOverlayService;
 		SegmentationModePicker.ItemsSource = SegmentationModeOptions;
+		NoiseReductionPicker.ItemsSource = NoiseReductionOptions;
 	}
 
 	protected override async void OnAppearing()
@@ -34,6 +42,7 @@ public partial class SettingsPage : ContentPage
 		_settings = await _settingsService.LoadAsync();
 		LoadSlidersFromSettings();
 		SegmentationModePicker.SelectedItem = FindSegmentationModeOption(_settings.SegmentationMode);
+		NoiseReductionPicker.SelectedItem = FindNoiseReductionOption(_settings.NoiseReductionMode);
 		AutoSaveCheckBox.IsChecked = _settings.AutoSaveTranscriptOnStop;
 		_isLoaded = true;
 		UpdateLabels();
@@ -58,6 +67,8 @@ public partial class SettingsPage : ContentPage
 	{
 		_settings.SegmentationMode = (SegmentationModePicker.SelectedItem as SegmentationModeOption)?.Code ??
 			AppSettings.RealtimeConversationMode;
+		_settings.NoiseReductionMode = (NoiseReductionPicker.SelectedItem as NoiseReductionOption)?.Code ??
+			AppSettings.NoiseReductionOff;
 		_settings.AutoSaveTranscriptOnStop = AutoSaveCheckBox.IsChecked;
 		_settings.MaxSegmentSeconds = Math.Round(MaxSegmentSlider.Value, 1);
 		_settings.FixedSegmentSeconds = Math.Round(FixedSegmentSlider.Value, 1);
@@ -95,6 +106,16 @@ public partial class SettingsPage : ContentPage
 		UpdateLabels();
 	}
 
+	private void OnNoiseReductionChanged(object? sender, EventArgs e)
+	{
+		if (!_isLoaded)
+		{
+			return;
+		}
+
+		ReadSettingsFromSliders();
+	}
+
 	private void OnAutoSaveChanged(object? sender, CheckedChangedEventArgs e)
 	{
 		if (!_isLoaded)
@@ -126,6 +147,7 @@ public partial class SettingsPage : ContentPage
 		};
 		LoadSlidersFromSettings();
 		SegmentationModePicker.SelectedItem = FindSegmentationModeOption(_settings.SegmentationMode);
+		NoiseReductionPicker.SelectedItem = FindNoiseReductionOption(_settings.NoiseReductionMode);
 		AutoSaveCheckBox.IsChecked = _settings.AutoSaveTranscriptOnStop;
 		ReadSettingsFromSliders();
 		UpdateLabels();
@@ -160,7 +182,25 @@ public partial class SettingsPage : ContentPage
 			string.Equals(option.Code, mode?.Trim(), StringComparison.OrdinalIgnoreCase)) ?? SegmentationModeOptions[0];
 	}
 
+	private static NoiseReductionOption FindNoiseReductionOption(string? mode)
+	{
+		return NoiseReductionOptions.FirstOrDefault(option =>
+			string.Equals(option.Code, mode?.Trim(), StringComparison.OrdinalIgnoreCase)) ?? NoiseReductionOptions[0];
+	}
+
 	private sealed class SegmentationModeOption(string label, string code)
+	{
+		public string Label { get; } = label;
+
+		public string Code { get; } = code;
+
+		public override string ToString()
+		{
+			return Label;
+		}
+	}
+
+	private sealed class NoiseReductionOption(string label, string code)
 	{
 		public string Label { get; } = label;
 

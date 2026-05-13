@@ -10,6 +10,12 @@ public sealed class AppSettings
 
 	public const string CinemaSubtitleMode = "cinema_subtitle";
 
+	public const string NoiseReductionOff = "off";
+
+	public const string NoiseReductionNearField = "near_field";
+
+	public const string NoiseReductionFarField = "far_field";
+
 	public string ApiKey { get; set; } = "";
 
 	public string Model { get; set; } = RealtimeWhisperModel;
@@ -19,6 +25,8 @@ public sealed class AppSettings
 	public string Prompt { get; set; } = "";
 
 	public string SegmentationMode { get; set; } = RealtimeConversationMode;
+
+	public string NoiseReductionMode { get; set; } = NoiseReductionOff;
 
 	public bool AutoSaveTranscriptOnStop { get; set; } = true;
 
