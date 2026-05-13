@@ -85,7 +85,7 @@ dotnet run --project WindowsAiTranscriber.csproj -f net10.0-windows10.0.19041.0
 - 自动保存转写结果
 - 分段模式：实时对话 / 高精度字幕
 - 高精度目标窗口、最长窗口、重叠时长
-- VAD 前置音频、长静音提交时间、最低语音音量、噪声倍率
+- VAD 前置音频、实时长静音提交、高精度长静音提交、最低语音音量、噪声倍率
 - 字幕字号、背景不透明度、满行停留时间、空闲清空时间
 
 默认值集中在 `Models/AppSettings.cs` 中：
@@ -95,7 +95,8 @@ public double HighPrecisionTargetWindowSeconds { get; set; } = 6.0;
 public double HighPrecisionMaxWindowSeconds { get; set; } = 8.0;
 public double HighPrecisionOverlapSeconds { get; set; } = 1.2;
 public double VadPreRollMilliseconds { get; set; } = 300;
-public double VadSilenceCommitMilliseconds { get; set; } = 1200;
+public double RealtimeSilenceCommitMilliseconds { get; set; } = 1200;
+public double HighPrecisionSilenceCommitMilliseconds { get; set; } = 1200;
 public double VadMinimumSpeechRms { get; set; } = 0.012;
 public double VadNoiseMultiplier { get; set; } = 3.0;
 public double SubtitleBackgroundOpacity { get; set; } = 0.72;
@@ -106,8 +107,10 @@ public double SubtitleIdleClearSeconds { get; set; } = 3.0;
 
 调参建议：
 
-- 高精度目标窗口越小，字幕更新越快；最长窗口越大，连续对白上下文越完整。
+- 高精度长静音提交越短，短句和尾句显示越快；高精度最长窗口越短，连续对白显示越快。
+- 高精度目标窗口主要约束最长窗口和重叠时长的可调范围。
 - 高精度重叠时长可减少切断句首句尾的概率，但可能带来少量重复文本。
+- 实时长静音提交控制实时模式完整语音段的提交等待；高精度长静音提交控制短句和尾句的自动提交等待。
 - `VadMinimumSpeechRms` 越小越容易触发语音，越大越能抑制背景声误触发。
 - `VadNoiseMultiplier` 越大，对动态噪声越保守。
 - 高精度字幕模式如果延迟太高，可降低目标窗口或最长窗口；如果断句过碎，可提高目标窗口或重叠时长。

@@ -57,7 +57,8 @@ public partial class SettingsPage : ContentPage
 		HighPrecisionMaxSlider.Value = _settings.HighPrecisionMaxWindowSeconds;
 		HighPrecisionOverlapSlider.Value = _settings.HighPrecisionOverlapSeconds;
 		PreRollSlider.Value = _settings.VadPreRollMilliseconds;
-		SilenceCommitSlider.Value = _settings.VadSilenceCommitMilliseconds;
+		RealtimeSilenceCommitSlider.Value = _settings.RealtimeSilenceCommitMilliseconds;
+		HighPrecisionSilenceCommitSlider.Value = _settings.HighPrecisionSilenceCommitMilliseconds;
 		_settings.MaxSegmentSeconds = Math.Clamp(
 			_settings.MaxSegmentSeconds,
 			RealtimeMaxSegmentMinSeconds,
@@ -86,7 +87,8 @@ public partial class SettingsPage : ContentPage
 			HighPrecisionOverlapSlider.Value,
 			Math.Max(0, _settings.HighPrecisionTargetWindowSeconds - 0.5)), 1);
 		_settings.VadPreRollMilliseconds = Math.Round(PreRollSlider.Value / 10) * 10;
-		_settings.VadSilenceCommitMilliseconds = Math.Round(SilenceCommitSlider.Value / 10) * 10;
+		_settings.RealtimeSilenceCommitMilliseconds = Math.Round(RealtimeSilenceCommitSlider.Value / 10) * 10;
+		_settings.HighPrecisionSilenceCommitMilliseconds = Math.Round(HighPrecisionSilenceCommitSlider.Value / 10) * 10;
 		_settings.MaxSegmentSeconds = Math.Round(Math.Clamp(
 			RealtimeMaxSegmentSlider.Value,
 			RealtimeMaxSegmentMinSeconds,
@@ -183,7 +185,8 @@ public partial class SettingsPage : ContentPage
 		HighPrecisionMaxLabel.Text = $"高精度最长窗口：{_settings.HighPrecisionMaxWindowSeconds:0.0} 秒";
 		HighPrecisionOverlapLabel.Text = $"高精度重叠：{_settings.HighPrecisionOverlapSeconds:0.0} 秒";
 		PreRollLabel.Text = $"前置音频：{_settings.VadPreRollMilliseconds:0} ms";
-		SilenceCommitLabel.Text = $"长静音提交：{_settings.VadSilenceCommitMilliseconds:0} ms";
+		RealtimeSilenceCommitLabel.Text = $"实时长静音提交：{_settings.RealtimeSilenceCommitMilliseconds:0} ms";
+		HighPrecisionSilenceCommitLabel.Text = $"高精度长静音提交：{_settings.HighPrecisionSilenceCommitMilliseconds:0} ms";
 		RealtimeMaxSegmentLabel.Text = $"实时最长片段：{_settings.MaxSegmentSeconds:0} 秒";
 		MinimumRmsLabel.Text = $"最低语音音量：{_settings.VadMinimumSpeechRms:0.000}";
 		NoiseMultiplierLabel.Text = $"噪声倍率：{_settings.VadNoiseMultiplier:0.0}";

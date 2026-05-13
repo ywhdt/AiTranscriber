@@ -711,8 +711,9 @@ public partial class MainPage : ContentPage
 			segmentation_mode = settings.SegmentationMode,
 			noise_reduction = settings.NoiseReductionMode,
 			turn_detection = settings.UsesHighPrecisionSubtitleMode ? "audio_transcriptions" : "local_long_silence",
-			realtime_long_silence_ms = settings.VadSilenceCommitMilliseconds,
+			realtime_long_silence_ms = settings.RealtimeSilenceCommitMilliseconds,
 			realtime_max_segment_seconds = ClampRealtimeMaxSegmentSeconds(settings.MaxSegmentSeconds),
+			high_precision_long_silence_ms = settings.HighPrecisionSilenceCommitMilliseconds,
 			high_precision_target_seconds = settings.HighPrecisionTargetWindowSeconds,
 			high_precision_max_seconds = settings.HighPrecisionMaxWindowSeconds,
 			high_precision_overlap_seconds = settings.HighPrecisionOverlapSeconds,
@@ -727,7 +728,7 @@ public partial class MainPage : ContentPage
 			settings.VadMinimumSpeechRms,
 			settings.VadNoiseMultiplier,
 			TimeSpan.FromMilliseconds(settings.VadPreRollMilliseconds),
-			TimeSpan.FromMilliseconds(settings.VadSilenceCommitMilliseconds),
+			TimeSpan.FromMilliseconds(settings.RealtimeSilenceCommitMilliseconds),
 			TimeSpan.Zero,
 			TimeSpan.FromSeconds(ClampRealtimeMaxSegmentSeconds(settings.MaxSegmentSeconds)),
 			true));
@@ -744,7 +745,7 @@ public partial class MainPage : ContentPage
 			settings.VadMinimumSpeechRms,
 			settings.VadNoiseMultiplier,
 			TimeSpan.FromMilliseconds(settings.VadPreRollMilliseconds),
-			TimeSpan.FromMilliseconds(settings.VadSilenceCommitMilliseconds),
+			TimeSpan.FromMilliseconds(settings.HighPrecisionSilenceCommitMilliseconds),
 			TimeSpan.FromSeconds(targetSeconds),
 			TimeSpan.FromSeconds(maxSeconds),
 			TimeSpan.FromSeconds(overlapSeconds)));
@@ -755,10 +756,10 @@ public partial class MainPage : ContentPage
 		var noiseReductionName = NoiseReductionDisplayName(settings.NoiseReductionMode);
 		if (settings.UsesHighPrecisionSubtitleMode)
 		{
-			return $"正在监听电脑系统音频。模型 {AppSettings.Gpt4oTranscribeModel}；高精度字幕；长静音 {settings.VadSilenceCommitMilliseconds:0} ms 后提交，最长 {settings.HighPrecisionMaxWindowSeconds:0.#} 秒，重叠 {settings.HighPrecisionOverlapSeconds:0.#} 秒。";
+			return $"正在监听电脑系统音频。模型 {AppSettings.Gpt4oTranscribeModel}；高精度字幕；长静音 {settings.HighPrecisionSilenceCommitMilliseconds:0} ms 后提交，最长 {settings.HighPrecisionMaxWindowSeconds:0.#} 秒，重叠 {settings.HighPrecisionOverlapSeconds:0.#} 秒。";
 		}
 
-		return $"正在监听电脑系统音频。模型 {AppSettings.RealtimeWhisperModel}；实时对话；降噪 {noiseReductionName}；长静音 {settings.VadSilenceCommitMilliseconds:0} ms 或最长 {ClampRealtimeMaxSegmentSeconds(settings.MaxSegmentSeconds):0} 秒后提交。";
+		return $"正在监听电脑系统音频。模型 {AppSettings.RealtimeWhisperModel}；实时对话；降噪 {noiseReductionName}；长静音 {settings.RealtimeSilenceCommitMilliseconds:0} ms 或最长 {ClampRealtimeMaxSegmentSeconds(settings.MaxSegmentSeconds):0} 秒后提交。";
 	}
 
 	private static double ClampRealtimeMaxSegmentSeconds(double seconds)
@@ -824,7 +825,8 @@ public partial class MainPage : ContentPage
 			HighPrecisionMaxWindowSeconds = settings.HighPrecisionMaxWindowSeconds,
 			HighPrecisionOverlapSeconds = settings.HighPrecisionOverlapSeconds,
 			VadPreRollMilliseconds = settings.VadPreRollMilliseconds,
-			VadSilenceCommitMilliseconds = settings.VadSilenceCommitMilliseconds,
+			RealtimeSilenceCommitMilliseconds = settings.RealtimeSilenceCommitMilliseconds,
+			HighPrecisionSilenceCommitMilliseconds = settings.HighPrecisionSilenceCommitMilliseconds,
 			VadMinimumSpeechRms = settings.VadMinimumSpeechRms,
 			VadNoiseMultiplier = settings.VadNoiseMultiplier,
 			SubtitleBackgroundOpacity = settings.SubtitleBackgroundOpacity,

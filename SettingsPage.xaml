@@ -64,8 +64,13 @@
                         </VerticalStackLayout>
 
                         <VerticalStackLayout Spacing="6">
-                            <Label x:Name="SilenceCommitLabel" TextColor="#344054" />
-                            <Slider x:Name="SilenceCommitSlider" Minimum="200" Maximum="2000" ValueChanged="OnSliderChanged" />
+                            <Label x:Name="RealtimeSilenceCommitLabel" TextColor="#344054" />
+                            <Slider x:Name="RealtimeSilenceCommitSlider" Minimum="200" Maximum="2000" ValueChanged="OnSliderChanged" />
+                        </VerticalStackLayout>
+
+                        <VerticalStackLayout Spacing="6">
+                            <Label x:Name="HighPrecisionSilenceCommitLabel" TextColor="#344054" />
+                            <Slider x:Name="HighPrecisionSilenceCommitSlider" Minimum="200" Maximum="2000" ValueChanged="OnSliderChanged" />
                         </VerticalStackLayout>
 
                         <VerticalStackLayout Spacing="6">

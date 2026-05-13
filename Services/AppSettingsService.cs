@@ -19,6 +19,8 @@ public sealed class AppSettingsService
 	private const string HighPrecisionOverlapSecondsName = "high_precision_overlap_seconds";
 	private const string VadPreRollMillisecondsName = "vad_pre_roll_milliseconds";
 	private const string VadSilenceCommitMillisecondsName = "vad_silence_commit_milliseconds";
+	private const string RealtimeSilenceCommitMillisecondsName = "realtime_silence_commit_milliseconds";
+	private const string HighPrecisionSilenceCommitMillisecondsName = "high_precision_silence_commit_milliseconds";
 	private const string VadMinimumSpeechRmsName = "vad_minimum_speech_rms";
 	private const string VadNoiseMultiplierName = "vad_noise_multiplier";
 	private const string SubtitleBackgroundOpacityName = "subtitle_background_opacity";
@@ -28,6 +30,8 @@ public sealed class AppSettingsService
 
 	public async Task<AppSettings> LoadAsync()
 	{
+		var legacySilenceCommitMilliseconds = Preferences.Default.Get(VadSilenceCommitMillisecondsName, 1200.0);
+
 		return new AppSettings
 		{
 			ApiKey = await SecureStorage.Default.GetAsync(ApiKeyName) ?? "",
@@ -44,7 +48,12 @@ public sealed class AppSettingsService
 			HighPrecisionMaxWindowSeconds = Preferences.Default.Get(HighPrecisionMaxWindowSecondsName, 8.0),
 			HighPrecisionOverlapSeconds = Preferences.Default.Get(HighPrecisionOverlapSecondsName, 1.2),
 			VadPreRollMilliseconds = Preferences.Default.Get(VadPreRollMillisecondsName, 300.0),
-			VadSilenceCommitMilliseconds = Preferences.Default.Get(VadSilenceCommitMillisecondsName, 1200.0),
+			RealtimeSilenceCommitMilliseconds = Preferences.Default.Get(
+				RealtimeSilenceCommitMillisecondsName,
+				legacySilenceCommitMilliseconds),
+			HighPrecisionSilenceCommitMilliseconds = Preferences.Default.Get(
+				HighPrecisionSilenceCommitMillisecondsName,
+				legacySilenceCommitMilliseconds),
 			VadMinimumSpeechRms = Preferences.Default.Get(VadMinimumSpeechRmsName, 0.012),
 			VadNoiseMultiplier = Preferences.Default.Get(VadNoiseMultiplierName, 3.0),
 			SubtitleBackgroundOpacity = Preferences.Default.Get(SubtitleBackgroundOpacityName, 0.72),
@@ -78,7 +87,8 @@ public sealed class AppSettingsService
 		Preferences.Default.Set(HighPrecisionMaxWindowSecondsName, settings.HighPrecisionMaxWindowSeconds);
 		Preferences.Default.Set(HighPrecisionOverlapSecondsName, settings.HighPrecisionOverlapSeconds);
 		Preferences.Default.Set(VadPreRollMillisecondsName, settings.VadPreRollMilliseconds);
-		Preferences.Default.Set(VadSilenceCommitMillisecondsName, settings.VadSilenceCommitMilliseconds);
+		Preferences.Default.Set(RealtimeSilenceCommitMillisecondsName, settings.RealtimeSilenceCommitMilliseconds);
+		Preferences.Default.Set(HighPrecisionSilenceCommitMillisecondsName, settings.HighPrecisionSilenceCommitMilliseconds);
 		Preferences.Default.Set(VadMinimumSpeechRmsName, settings.VadMinimumSpeechRms);
 		Preferences.Default.Set(VadNoiseMultiplierName, settings.VadNoiseMultiplier);
 		Preferences.Default.Set(SubtitleBackgroundOpacityName, settings.SubtitleBackgroundOpacity);
