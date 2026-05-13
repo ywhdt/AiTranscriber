@@ -51,9 +51,9 @@ public sealed class AppSettingsService
 			MaxSegmentSeconds = Preferences.Default.Get(MaxSegmentSecondsName, 12.0),
 			FixedSegmentSeconds = Preferences.Default.Get(FixedSegmentSecondsName, 6.0),
 			CinemaEarlyCommitPercent = Preferences.Default.Get(CinemaEarlyCommitPercentName, 80.0),
-			HighPrecisionTargetWindowSeconds = Preferences.Default.Get(HighPrecisionTargetWindowSecondsName, 6.0),
-			HighPrecisionMaxWindowSeconds = Preferences.Default.Get(HighPrecisionMaxWindowSecondsName, 12.0),
-			HighPrecisionOverlapSeconds = Preferences.Default.Get(HighPrecisionOverlapSecondsName, 3.0),
+			HighPrecisionTargetWindowSeconds = Preferences.Default.Get(HighPrecisionTargetWindowSecondsName, 4.0),
+			HighPrecisionMaxWindowSeconds = Preferences.Default.Get(HighPrecisionMaxWindowSecondsName, 6.0),
+			HighPrecisionOverlapSeconds = Preferences.Default.Get(HighPrecisionOverlapSecondsName, 1.5),
 			VadPreRollMilliseconds = Preferences.Default.Get(VadPreRollMillisecondsName, 300.0),
 			RealtimeSilenceCommitMilliseconds = Preferences.Default.Get(
 				RealtimeSilenceCommitMillisecondsName,
@@ -61,10 +61,10 @@ public sealed class AppSettingsService
 			HighPrecisionSilenceCommitMilliseconds = Preferences.Default.Get(
 				HighPrecisionSilenceCommitMillisecondsName,
 				highPrecisionSilenceCommitDefault),
-			VadMinimumSpeechRms = Preferences.Default.Get(VadMinimumSpeechRmsName, 0.02),
-			VadNoiseMultiplier = Preferences.Default.Get(VadNoiseMultiplierName, 3.0),
+			VadMinimumSpeechRms = Preferences.Default.Get(VadMinimumSpeechRmsName, 0.012),
+			VadNoiseMultiplier = Preferences.Default.Get(VadNoiseMultiplierName, 2.0),
 			SubtitleBackgroundOpacity = Preferences.Default.Get(SubtitleBackgroundOpacityName, 0.44),
-			SubtitleFontSize = Preferences.Default.Get(SubtitleFontSizeName, 34.0),
+			SubtitleFontSize = Preferences.Default.Get(SubtitleFontSizeName, 30.0),
 			SubtitleLineHoldSeconds = Preferences.Default.Get(SubtitleLineHoldSecondsName, 0.5),
 			SubtitleIdleClearSeconds = Preferences.Default.Get(SubtitleIdleClearSecondsName, 2.0)
 		};

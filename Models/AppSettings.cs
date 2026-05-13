@@ -36,11 +36,11 @@ public sealed class AppSettings
 
 	public double CinemaEarlyCommitPercent { get; set; } = 80.0;
 
-	public double HighPrecisionTargetWindowSeconds { get; set; } = 6.0;
+	public double HighPrecisionTargetWindowSeconds { get; set; } = 4.0;
 
-	public double HighPrecisionMaxWindowSeconds { get; set; } = 12.0;
+	public double HighPrecisionMaxWindowSeconds { get; set; } = 6.0;
 
-	public double HighPrecisionOverlapSeconds { get; set; } = 3.0;
+	public double HighPrecisionOverlapSeconds { get; set; } = 1.5;
 
 	public double VadPreRollMilliseconds { get; set; } = 300;
 
@@ -48,13 +48,13 @@ public sealed class AppSettings
 
 	public double HighPrecisionSilenceCommitMilliseconds { get; set; } = 4000;
 
-	public double VadMinimumSpeechRms { get; set; } = 0.02;
+	public double VadMinimumSpeechRms { get; set; } = 0.012;
 
-	public double VadNoiseMultiplier { get; set; } = 3.0;
+	public double VadNoiseMultiplier { get; set; } = 2.0;
 
 	public double SubtitleBackgroundOpacity { get; set; } = 0.44;
 
-	public double SubtitleFontSize { get; set; } = 34;
+	public double SubtitleFontSize { get; set; } = 30;
 
 	public double SubtitleLineHoldSeconds { get; set; } = 0.5;
 
