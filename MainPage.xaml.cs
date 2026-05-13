@@ -16,6 +16,8 @@ public partial class MainPage : ContentPage
 
 	private const int AudioSampleRate = 24000;
 	private const int MinimumCommitBytes = AudioSampleRate * 2 / 10;
+	private const double RealtimeMaxSegmentMinSeconds = 5.0;
+	private const double RealtimeMaxSegmentMaxSeconds = 60.0;
 
 	private readonly AppSettingsService _settingsService;
 	private readonly TranscriptStore _transcriptStore;
@@ -710,6 +712,7 @@ public partial class MainPage : ContentPage
 			noise_reduction = settings.NoiseReductionMode,
 			turn_detection = settings.UsesHighPrecisionSubtitleMode ? "audio_transcriptions" : "local_long_silence",
 			realtime_long_silence_ms = settings.VadSilenceCommitMilliseconds,
+			realtime_max_segment_seconds = ClampRealtimeMaxSegmentSeconds(settings.MaxSegmentSeconds),
 			high_precision_target_seconds = settings.HighPrecisionTargetWindowSeconds,
 			high_precision_max_seconds = settings.HighPrecisionMaxWindowSeconds,
 			high_precision_overlap_seconds = settings.HighPrecisionOverlapSeconds,
@@ -726,7 +729,7 @@ public partial class MainPage : ContentPage
 			TimeSpan.FromMilliseconds(settings.VadPreRollMilliseconds),
 			TimeSpan.FromMilliseconds(settings.VadSilenceCommitMilliseconds),
 			TimeSpan.Zero,
-			TimeSpan.FromHours(1),
+			TimeSpan.FromSeconds(ClampRealtimeMaxSegmentSeconds(settings.MaxSegmentSeconds)),
 			true));
 	}
 
@@ -755,7 +758,12 @@ public partial class MainPage : ContentPage
 			return $"正在监听电脑系统音频。模型 {AppSettings.Gpt4oTranscribeModel}；高精度字幕；目标窗口 {settings.HighPrecisionTargetWindowSeconds:0.#} 秒，最长 {settings.HighPrecisionMaxWindowSeconds:0.#} 秒，重叠 {settings.HighPrecisionOverlapSeconds:0.#} 秒。";
 		}
 
-		return $"正在监听电脑系统音频。模型 {AppSettings.RealtimeWhisperModel}；实时对话；降噪 {noiseReductionName}；长静音 {settings.VadSilenceCommitMilliseconds:0} ms 后提交。";
+		return $"正在监听电脑系统音频。模型 {AppSettings.RealtimeWhisperModel}；实时对话；降噪 {noiseReductionName}；长静音 {settings.VadSilenceCommitMilliseconds:0} ms 或最长 {ClampRealtimeMaxSegmentSeconds(settings.MaxSegmentSeconds):0} 秒后提交。";
+	}
+
+	private static double ClampRealtimeMaxSegmentSeconds(double seconds)
+	{
+		return Math.Clamp(seconds, RealtimeMaxSegmentMinSeconds, RealtimeMaxSegmentMaxSeconds);
 	}
 
 	private static string NoiseReductionDisplayName(string? mode)

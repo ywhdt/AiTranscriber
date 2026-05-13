@@ -5,6 +5,9 @@ namespace WindowsAiTranscriber;
 
 public partial class SettingsPage : ContentPage
 {
+	private const double RealtimeMaxSegmentMinSeconds = 5.0;
+	private const double RealtimeMaxSegmentMaxSeconds = 60.0;
+
 	private static readonly List<SegmentationModeOption> SegmentationModeOptions =
 	[
 		new("实时对话", AppSettings.RealtimeConversationMode),
@@ -55,6 +58,11 @@ public partial class SettingsPage : ContentPage
 		HighPrecisionOverlapSlider.Value = _settings.HighPrecisionOverlapSeconds;
 		PreRollSlider.Value = _settings.VadPreRollMilliseconds;
 		SilenceCommitSlider.Value = _settings.VadSilenceCommitMilliseconds;
+		_settings.MaxSegmentSeconds = Math.Clamp(
+			_settings.MaxSegmentSeconds,
+			RealtimeMaxSegmentMinSeconds,
+			RealtimeMaxSegmentMaxSeconds);
+		RealtimeMaxSegmentSlider.Value = _settings.MaxSegmentSeconds;
 		MinimumRmsSlider.Value = _settings.VadMinimumSpeechRms;
 		NoiseMultiplierSlider.Value = _settings.VadNoiseMultiplier;
 		SubtitleFontSizeSlider.Value = _settings.SubtitleFontSize;
@@ -79,6 +87,10 @@ public partial class SettingsPage : ContentPage
 			Math.Max(0, _settings.HighPrecisionTargetWindowSeconds - 0.5)), 1);
 		_settings.VadPreRollMilliseconds = Math.Round(PreRollSlider.Value / 10) * 10;
 		_settings.VadSilenceCommitMilliseconds = Math.Round(SilenceCommitSlider.Value / 10) * 10;
+		_settings.MaxSegmentSeconds = Math.Round(Math.Clamp(
+			RealtimeMaxSegmentSlider.Value,
+			RealtimeMaxSegmentMinSeconds,
+			RealtimeMaxSegmentMaxSeconds));
 		_settings.VadMinimumSpeechRms = Math.Round(MinimumRmsSlider.Value, 3);
 		_settings.VadNoiseMultiplier = Math.Round(NoiseMultiplierSlider.Value, 1);
 		_settings.SubtitleFontSize = Math.Round(SubtitleFontSizeSlider.Value);
@@ -172,6 +184,7 @@ public partial class SettingsPage : ContentPage
 		HighPrecisionOverlapLabel.Text = $"高精度重叠：{_settings.HighPrecisionOverlapSeconds:0.0} 秒";
 		PreRollLabel.Text = $"前置音频：{_settings.VadPreRollMilliseconds:0} ms";
 		SilenceCommitLabel.Text = $"长静音提交：{_settings.VadSilenceCommitMilliseconds:0} ms";
+		RealtimeMaxSegmentLabel.Text = $"实时最长片段：{_settings.MaxSegmentSeconds:0} 秒";
 		MinimumRmsLabel.Text = $"最低语音音量：{_settings.VadMinimumSpeechRms:0.000}";
 		NoiseMultiplierLabel.Text = $"噪声倍率：{_settings.VadNoiseMultiplier:0.0}";
 		SubtitleFontSizeLabel.Text = $"字幕字号：{_settings.SubtitleFontSize:0}";

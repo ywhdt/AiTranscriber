@@ -37,7 +37,7 @@ public sealed class AppSettingsService
 			SegmentationMode = Preferences.Default.Get(SegmentationModeName, AppSettings.RealtimeConversationMode),
 			NoiseReductionMode = Preferences.Default.Get(NoiseReductionModeName, AppSettings.NoiseReductionOff),
 			AutoSaveTranscriptOnStop = Preferences.Default.Get(AutoSaveTranscriptOnStopName, true),
-			MaxSegmentSeconds = Preferences.Default.Get(MaxSegmentSecondsName, 2.0),
+			MaxSegmentSeconds = Preferences.Default.Get(MaxSegmentSecondsName, 12.0),
 			FixedSegmentSeconds = Preferences.Default.Get(FixedSegmentSecondsName, 6.0),
 			CinemaEarlyCommitPercent = Preferences.Default.Get(CinemaEarlyCommitPercentName, 80.0),
 			HighPrecisionTargetWindowSeconds = Preferences.Default.Get(HighPrecisionTargetWindowSecondsName, 6.0),

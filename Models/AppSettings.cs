@@ -30,7 +30,7 @@ public sealed class AppSettings
 
 	public bool AutoSaveTranscriptOnStop { get; set; } = true;
 
-	public double MaxSegmentSeconds { get; set; } = 2.0;
+	public double MaxSegmentSeconds { get; set; } = 12.0;
 
 	public double FixedSegmentSeconds { get; set; } = 6.0;
 
