@@ -1,56 +1,96 @@
 # Windows AI Transcriber
 
-一个 Windows-first 的 .NET MAUI 实时转写工具。当前版本会抓取电脑正在播放的系统音频，通过 OpenAI Realtime 转写接口把声音实时变成文字，并可在停止后保存文本记录。
-本项目仅用于学习和个人使用。
+Windows AI Transcriber 是一个 **Windows-first 的 .NET MAUI 实时转写桌面应用**。它使用 NAudio 的 WASAPI loopback 捕获电脑正在播放的系统声音，将音频重采样为 OpenAI Realtime 转写接口需要的 24 kHz mono PCM16，并把识别出的文字显示在主窗口和可选的字幕悬浮窗中。
 
-## 当前功能
+> 本项目面向学习、实验和个人使用；当前工程只配置了 Windows 目标框架，虽然保留了 MAUI 模板生成的 iOS、Android、MacCatalyst 目录，但实际音频采集实现仅在 Windows 下可用。
 
-- 抓取 Windows 系统音频，不依赖麦克风。
-- 默认使用 `gpt-realtime-whisper` 做实时转写。
-- 可切换到 `gpt-4o-transcribe`。
-- 支持填写语言代码，例如 `zh`、`en`，留空则交给模型自动判断。
-- 支持填写专有名词提示，提升课程名、人名、产品名等识别效果。
-- API Key 使用系统安全存储保存，其余设置使用本地偏好设置保存。
-- 转写结果保存到应用数据目录的 `Transcripts` 文件夹。
-- 设置页可以直接调整分段模式、本地 VAD 参数、自动保存、字幕字号、字幕背景不透明度、满行停留时间和空闲清空时间。
-- 可打开独立字幕条窗口。字幕条会按单行显示增量文字，满一行后停留一段时间再清空进入下一行。
-- 对于实时要求不高的情景，推荐使用 `gpt-4o-transcribe` 准确度更高
+## 主要功能
 
-## 运行方式
+- **系统音频捕获**：抓取电脑扬声器/应用正在播放的声音，不使用麦克风输入。
+- **OpenAI Realtime 转写**：通过 `wss://api.openai.com/v1/realtime?intent=transcription` 建立转写会话。
+- **模型选择**：默认模型为 `gpt-realtime-whisper`，界面中也可切换到 `gpt-4o-transcribe`。
+- **语言与提示词**：当前界面可选择中文、英文、日文；支持填写专有名词提示词。
+- **本地 VAD 分段**：应用端关闭服务端 turn detection，使用本地 RMS/VAD 逻辑决定何时发送和提交音频。
+- **两种分段模式**：
+  - `实时对话`：检测到声音即发送，静音或达到最长分段时提交，适合会议、课程、直播。
+  - `影视字幕`：按固定间隔缓存后提交，达到提前提交比例后遇到静音会提前发送，适合字幕场景。
+- **字幕悬浮窗**：可打开独立的 WPF 透明置顶字幕条，支持拖动、单行增量显示、满行停留和空闲清空。
+- **转写保存**：停止时可自动保存，也可以手动保存；文本会保存到应用数据目录下的 `Transcripts` 文件夹。
+- **事件日志**：每次会话会重置并写入 `realtime-events.log`，便于排查 Realtime 服务端事件和本地提交策略。
+- **安全存储**：OpenAI API Key 使用 MAUI `SecureStorage` 保存；模型、语言、VAD 和字幕设置使用 `Preferences` 保存。
 
-1. 用 Visual Studio 打开 `WindowsAiTranscriber.sln`。
-2. 选择 Windows 目标运行。
-3. 填入 OpenAI API Key。
-4. 播放电脑里的音频，然后点击“开始”。
-5. 点击“停止”后，如果设置里开启了自动保存，转写文本会自动保存。
+## 技术栈与运行环境
 
-也可以在命令行运行：
+- .NET MAUI，目标框架：`net10.0-windows10.0.19041.0`
+- Windows 最低支持版本：Windows 10 `10.0.17763.0`
+- NAudio `2.3.0` 用于 WASAPI loopback 和 Media Foundation 重采样
+- WPF 用于字幕悬浮窗
+- OpenAI API Key，需要有 Realtime 转写接口可用权限
+
+## 快速开始
+
+### 使用 Visual Studio
+
+1. 在 Windows 上安装 Visual Studio，并安装 .NET MAUI / Windows 桌面开发相关工作负载。
+2. 打开 `WindowsAiTranscriber.sln`。
+3. 选择 Windows 目标并启动应用。
+4. 在主界面填写 OpenAI API Key。
+5. 选择转写模型、语言和可选的专有名词提示。
+6. 播放电脑里的音频，然后点击“开始”。
+7. 点击“停止”结束会话；如果设置里开启了自动保存，转写文本会自动保存。
+
+### 使用命令行
 
 ```powershell
-dotnet build
-dotnet run -f net10.0-windows10.0.19041.0
+dotnet build WindowsAiTranscriber.csproj
+dotnet run --project WindowsAiTranscriber.csproj -f net10.0-windows10.0.19041.0
 ```
 
-## 生成本地发布包
+> 如果命令行提示缺少 MAUI 工作负载或 Windows 目标包，请先按提示安装对应 .NET SDK / workload。
 
-在项目根目录运行：
+## 本地发布包
+
+项目提供了一个 PowerShell 发布脚本，用于生成无需 MSIX 安装流程的本地文件夹发布包：
 
 ```powershell
 .\tools\publish-local.ps1
 ```
 
-脚本会生成：
+默认输出：
 
 - `artifacts\WindowsAiTranscriber-local\WindowsAiTranscriber.exe`
 - `artifacts\WindowsAiTranscriber-local.zip`
 
-这个发布包不需要安装证书。把整个 `WindowsAiTranscriber-local` 文件夹放到任意位置，然后运行里面的 `WindowsAiTranscriber.exe` 即可。
+发布脚本默认使用 `Release` 和 `win-x64`，并设置 `WindowsPackageType=None`、`WindowsAppSDKSelfContained=true`。把整个 `WindowsAiTranscriber-local` 文件夹复制到任意位置后，运行里面的 `WindowsAiTranscriber.exe` 即可。
 
-## 调整本地 VAD
+如果需要双击安装、开始菜单入口和卸载入口，可以后续改为 MSIX 安装包。MSIX 必须签名；本机测试可使用自签证书，正式分发应使用受信任的代码签名方式。
 
-默认本地 VAD 会先判断是否有声音，静音时不提交音频；检测到声音后最多每 2 秒切一段。影视字幕模式下，本地 VAD 会先缓存音频，达到固定提交间隔后发送；如果超过提前提交比例后检测到静音，也会提前发送。现在可以直接在软件的“设置”界面修改这些参数。
+## 使用说明
 
-如果要改默认值，修改 `Models\AppSettings.cs` 里的这些属性：
+### 主窗口
+
+- **OpenAI API Key**：必填。保存/启动时写入系统安全存储；以空值保存时会移除保存的 Key。
+- **转写模型**：可选 `gpt-realtime-whisper` 或 `gpt-4o-transcribe`。
+- **语言**：当前界面提供 `zh`、`en`、`ja` 三个选项，默认 `zh`。
+- **专有名词提示**：填写课程名、人名、产品名、术语等，以提升识别稳定性。
+- **开始/停止**：开始后连接 OpenAI Realtime、启动系统音频采集；停止时提交剩余音频并关闭会话。
+- **清空/保存**：清空当前窗口内容，或手动把已完成片段保存为 `.txt`。
+- **设置**：调整分段模式、本地 VAD、自动保存和字幕悬浮窗参数。
+- **打开字幕窗**：打开/关闭独立字幕条窗口。
+
+### 设置页
+
+可调整的参数包括：
+
+- 自动保存转写结果
+- 分段模式：实时对话 / 影视字幕
+- 实时最长分段时长
+- 影视字幕固定提交间隔
+- 影视字幕提前提交比例
+- VAD 前置音频、静音提交时间、最低语音音量、噪声倍率
+- 字幕字号、背景不透明度、满行停留时间、空闲清空时间
+
+默认值集中在 `Models/AppSettings.cs` 中：
 
 ```csharp
 public double MaxSegmentSeconds { get; set; } = 2.0;
@@ -66,22 +106,57 @@ public double SubtitleLineHoldSeconds { get; set; } = 1.0;
 public double SubtitleIdleClearSeconds { get; set; } = 3.0;
 ```
 
-`MaxSegmentSeconds` 或 `FixedSegmentSeconds` 越小，字幕更新越快，但上下文更少；`VadMinimumSpeechRms` 越小越敏感，越大越不容易误触发。
+调参建议：
 
-如果需要双击安装、开始菜单入口和卸载入口，下一步可以改成 MSIX 安装包。MSIX 必须签名；自己电脑测试可以用自签证书，正式分发则应使用受信任的代码签名方式。
+- `MaxSegmentSeconds` / `FixedSegmentSeconds` 越小，字幕更新越快，但每段上下文越少。
+- `VadMinimumSpeechRms` 越小越容易触发语音，越大越能抑制背景声误触发。
+- `VadNoiseMultiplier` 越大，对动态噪声越保守。
+- 影视字幕模式如果延迟太高，可降低 `FixedSegmentSeconds`；如果断句过碎，可提高该值或提高提前提交比例。
+
+## 数据位置
+
+应用使用 MAUI 的 `FileSystem.AppDataDirectory` 保存运行数据：
+
+- `Transcripts/transcript-yyyyMMdd-HHmmss.txt`：转写文本，每段带本地时间戳。
+- `realtime-events.log`：OpenAI Realtime 服务端事件和本地音频提交日志。
+
+具体目录由 Windows/MAUI 运行时决定，可在应用界面底部看到保存后的完整路径或事件日志路径。
 
 ## 项目结构
 
-- `MainPage.xaml` / `MainPage.xaml.cs`：主界面和按钮逻辑。
-- `Services/OpenAIRealtimeTranscriptionService.cs`：连接 OpenAI Realtime API。
-- `Platforms/Windows/Audio/WindowsSystemAudioCaptureService.cs`：抓取电脑系统音频。
-- `Platforms/Windows/Audio/AudioResampler.cs`：把系统音频转换为 24kHz mono PCM16。
-- `Services/AppSettingsService.cs`：保存 API Key、模型、语言和提示词。
-- `Services/TranscriptStore.cs`：保存转写文本。
+```text
+.
+├── MainPage.xaml / MainPage.xaml.cs                  # 主界面、会话控制、音频/VAD 管线
+├── SettingsPage.xaml / SettingsPage.xaml.cs          # VAD、分段、字幕和自动保存设置
+├── SubtitleOverlayPage.xaml / SubtitleOverlayPage.xaml.cs
+├── Models/
+│   ├── AppSettings.cs                                # 配置模型和默认值
+│   └── TranscriptSegment.cs                          # 转写片段模型
+├── Services/
+│   ├── AppSettingsService.cs                         # SecureStorage / Preferences 持久化
+│   ├── LocalVoiceActivityDetector.cs                 # 本地 RMS/VAD 分段
+│   ├── OpenAIRealtimeTranscriptionService.cs         # Realtime WebSocket、事件解析、日志
+│   ├── SubtitleOverlayService.cs                     # WPF 字幕悬浮窗
+│   ├── TranscriptStore.cs                            # 文本保存
+│   └── TranscriptionTextCleaner.cs                   # 文本清理和乱码修复
+├── Platforms/Windows/Audio/
+│   ├── WindowsSystemAudioCaptureService.cs           # WASAPI loopback 系统音频捕获
+│   └── AudioResampler.cs                             # 24 kHz mono PCM16 重采样
+├── WindowsAiTranscriber.csproj                       # .NET MAUI Windows 项目
+└── tools/publish-local.ps1                           # 本地发布脚本
+```
 
-## 后续可加功能
+## 已知限制
 
-- 导出 `.srt` 字幕文件。
-- 历史记录页面。
-- 热键开始/停止。
-- 按应用选择音频来源。
+- 当前只实现了 Windows 系统音频捕获；非 Windows 平台目录来自 MAUI 模板，并未接入对应音频采集实现。
+- 只能捕获系统混音输出，不能按应用单独选择音源，也不会录入麦克风。
+- Realtime 转写依赖网络和 OpenAI API 可用性；模型名称和接口权限以账号实际可用情况为准。
+- 转写结果为纯文本，尚未导出 `.srt` / `.vtt` 字幕文件。
+
+## 后续可扩展方向
+
+- 导出 `.srt` / `.vtt` 字幕文件。
+- 历史记录页面和转写搜索。
+- 全局热键开始/停止。
+- 按应用或音频设备选择音源。
+- 麦克风与系统声音混音。
