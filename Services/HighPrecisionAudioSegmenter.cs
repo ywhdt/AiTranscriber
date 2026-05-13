@@ -79,7 +79,7 @@ public sealed class HighPrecisionAudioSegmenter(HighPrecisionAudioSegmenterOptio
 		var audio = BuildSegmentAudio();
 		var reason = shouldFlushForMaxWindow
 			? "max_window"
-			: _segmentBytes >= _targetWindowBytes ? "silence" : "short_silence";
+			: _segmentBytes >= _targetWindowBytes ? "silence_after_target" : "short_silence";
 		ResetAfterFlush(audio, keepOverlapActive: shouldFlushForMaxWindow);
 		return new HighPrecisionSegmenterResult(
 			audio,
