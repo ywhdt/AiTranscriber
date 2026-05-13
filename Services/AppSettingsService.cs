@@ -30,36 +30,43 @@ public sealed class AppSettingsService
 
 	public async Task<AppSettings> LoadAsync()
 	{
+		var hasLegacySilenceCommitMilliseconds = Preferences.Default.ContainsKey(VadSilenceCommitMillisecondsName);
 		var legacySilenceCommitMilliseconds = Preferences.Default.Get(VadSilenceCommitMillisecondsName, 1200.0);
+		var realtimeSilenceCommitDefault = hasLegacySilenceCommitMilliseconds
+			? legacySilenceCommitMilliseconds
+			: 2000.0;
+		var highPrecisionSilenceCommitDefault = hasLegacySilenceCommitMilliseconds
+			? legacySilenceCommitMilliseconds
+			: 4000.0;
 
 		return new AppSettings
 		{
 			ApiKey = await SecureStorage.Default.GetAsync(ApiKeyName) ?? "",
-			Model = Preferences.Default.Get(ModelName, AppSettings.RealtimeWhisperModel),
-			Language = Preferences.Default.Get(LanguageName, "zh"),
+			Model = Preferences.Default.Get(ModelName, AppSettings.Gpt4oTranscribeModel),
+			Language = Preferences.Default.Get(LanguageName, "ja"),
 			Prompt = Preferences.Default.Get(PromptName, ""),
-			SegmentationMode = Preferences.Default.Get(SegmentationModeName, AppSettings.RealtimeConversationMode),
+			SegmentationMode = Preferences.Default.Get(SegmentationModeName, AppSettings.CinemaSubtitleMode),
 			NoiseReductionMode = Preferences.Default.Get(NoiseReductionModeName, AppSettings.NoiseReductionOff),
-			AutoSaveTranscriptOnStop = Preferences.Default.Get(AutoSaveTranscriptOnStopName, true),
+			AutoSaveTranscriptOnStop = Preferences.Default.Get(AutoSaveTranscriptOnStopName, false),
 			MaxSegmentSeconds = Preferences.Default.Get(MaxSegmentSecondsName, 12.0),
 			FixedSegmentSeconds = Preferences.Default.Get(FixedSegmentSecondsName, 6.0),
 			CinemaEarlyCommitPercent = Preferences.Default.Get(CinemaEarlyCommitPercentName, 80.0),
 			HighPrecisionTargetWindowSeconds = Preferences.Default.Get(HighPrecisionTargetWindowSecondsName, 6.0),
-			HighPrecisionMaxWindowSeconds = Preferences.Default.Get(HighPrecisionMaxWindowSecondsName, 8.0),
-			HighPrecisionOverlapSeconds = Preferences.Default.Get(HighPrecisionOverlapSecondsName, 1.2),
+			HighPrecisionMaxWindowSeconds = Preferences.Default.Get(HighPrecisionMaxWindowSecondsName, 12.0),
+			HighPrecisionOverlapSeconds = Preferences.Default.Get(HighPrecisionOverlapSecondsName, 3.0),
 			VadPreRollMilliseconds = Preferences.Default.Get(VadPreRollMillisecondsName, 300.0),
 			RealtimeSilenceCommitMilliseconds = Preferences.Default.Get(
 				RealtimeSilenceCommitMillisecondsName,
-				legacySilenceCommitMilliseconds),
+				realtimeSilenceCommitDefault),
 			HighPrecisionSilenceCommitMilliseconds = Preferences.Default.Get(
 				HighPrecisionSilenceCommitMillisecondsName,
-				legacySilenceCommitMilliseconds),
-			VadMinimumSpeechRms = Preferences.Default.Get(VadMinimumSpeechRmsName, 0.012),
+				highPrecisionSilenceCommitDefault),
+			VadMinimumSpeechRms = Preferences.Default.Get(VadMinimumSpeechRmsName, 0.02),
 			VadNoiseMultiplier = Preferences.Default.Get(VadNoiseMultiplierName, 3.0),
-			SubtitleBackgroundOpacity = Preferences.Default.Get(SubtitleBackgroundOpacityName, 0.72),
+			SubtitleBackgroundOpacity = Preferences.Default.Get(SubtitleBackgroundOpacityName, 0.44),
 			SubtitleFontSize = Preferences.Default.Get(SubtitleFontSizeName, 34.0),
-			SubtitleLineHoldSeconds = Preferences.Default.Get(SubtitleLineHoldSecondsName, 1.0),
-			SubtitleIdleClearSeconds = Preferences.Default.Get(SubtitleIdleClearSecondsName, 3.0)
+			SubtitleLineHoldSeconds = Preferences.Default.Get(SubtitleLineHoldSecondsName, 0.5),
+			SubtitleIdleClearSeconds = Preferences.Default.Get(SubtitleIdleClearSecondsName, 2.0)
 		};
 	}
 
