@@ -69,7 +69,7 @@
                         <Editor
                             x:Name="PromptEditor"
                             HeightRequest="118"
-                            Placeholder="例如课程名、人名、产品名。可留空。" />
+                            Placeholder="例如课程名、人名、产品名。高精度字幕模式可用；实时模式下提示词无效。可留空。" />
                     </VerticalStackLayout>
 
                     <Grid ColumnDefinitions="*,*" ColumnSpacing="10">

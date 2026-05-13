@@ -175,7 +175,8 @@ public sealed class OpenAIRealtimeTranscriptionService : IAsyncDisposable
 			transcription["language"] = settings.Language.Trim();
 		}
 
-		if (!string.IsNullOrWhiteSpace(settings.Prompt))
+		if (!string.Equals(settings.Model, AppSettings.RealtimeWhisperModel, StringComparison.OrdinalIgnoreCase) &&
+			!string.IsNullOrWhiteSpace(settings.Prompt))
 		{
 			transcription["prompt"] = settings.Prompt.Trim();
 		}
