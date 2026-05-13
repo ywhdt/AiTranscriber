@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Text;
 using System.Windows.Input;
 using WindowsAiTranscriber.Models;
@@ -5,7 +6,9 @@ using WpfBorder = System.Windows.Controls.Border;
 using WpfBrushes = System.Windows.Media.Brushes;
 using WpfColor = System.Windows.Media.Color;
 using WpfCornerRadius = System.Windows.CornerRadius;
+using WpfFlowDirection = System.Windows.FlowDirection;
 using WpfFontWeights = System.Windows.FontWeights;
+using WpfFormattedText = System.Windows.Media.FormattedText;
 using WpfGrid = System.Windows.Controls.Grid;
 using WpfHorizontalAlignment = System.Windows.HorizontalAlignment;
 using WpfResizeMode = System.Windows.ResizeMode;
@@ -14,7 +17,9 @@ using WpfSystemParameters = System.Windows.SystemParameters;
 using WpfTextBlock = System.Windows.Controls.TextBlock;
 using WpfTextAlignment = System.Windows.TextAlignment;
 using WpfThickness = System.Windows.Thickness;
+using WpfTypeface = System.Windows.Media.Typeface;
 using WpfVerticalAlignment = System.Windows.VerticalAlignment;
+using WpfVisualTreeHelper = System.Windows.Media.VisualTreeHelper;
 using WpfWindow = System.Windows.Window;
 using WpfWindowStyle = System.Windows.WindowStyle;
 
@@ -22,6 +27,10 @@ namespace WindowsAiTranscriber.Services;
 
 public sealed class SubtitleOverlayService
 {
+	private const double RootHorizontalMargin = 28;
+	private const double TextWidthSafetyMargin = 14;
+	private const double MinimumTextWidth = 120;
+
 	private readonly Queue<char> _pendingChars = [];
 	private readonly StringBuilder _visibleLine = new();
 	private WpfWindow? _window;
@@ -31,7 +40,6 @@ public sealed class SubtitleOverlayService
 	private bool _isHoldingFullLine;
 	private bool _isProcessScheduled;
 	private int _idleClearGeneration;
-	private double _visibleLineUnits;
 
 	public bool IsOpen => _window is not null;
 
@@ -240,35 +248,32 @@ public sealed class SubtitleOverlayService
 			return;
 		}
 
-		var maxUnits = EstimateMaxLineUnits();
+		var availableWidth = GetAvailableTextWidth();
 
 		while (_pendingChars.Count > 0)
 		{
 			var next = _pendingChars.Peek();
-			var nextUnits = EstimateCharacterUnits(next);
+			_visibleLine.Append(next);
 
-			if (_visibleLine.Length > 0 && _visibleLineUnits + nextUnits > maxUnits)
+			if (!DoesTextFit(_visibleLine.ToString(), availableWidth))
 			{
-				HoldCurrentLineThenAdvance();
-				return;
+				_visibleLine.Length--;
+
+				if (_visibleLine.Length > 0)
+				{
+					HoldCurrentLineThenAdvance();
+					return;
+				}
+
+				_pendingChars.Dequeue();
+				_visibleLine.Append(next);
+				break;
 			}
 
 			_pendingChars.Dequeue();
-			_visibleLine.Append(next);
-			_visibleLineUnits += nextUnits;
-
-			if (_visibleLineUnits >= maxUnits)
-			{
-				break;
-			}
 		}
 
 		SetDisplayedText(_visibleLine.ToString());
-
-		if (_visibleLineUnits >= maxUnits && _visibleLine.Length > 0)
-		{
-			HoldCurrentLineThenAdvance();
-		}
 	}
 
 	private async void HoldCurrentLineThenAdvance()
@@ -288,7 +293,6 @@ public sealed class SubtitleOverlayService
 		finally
 		{
 			_visibleLine.Clear();
-			_visibleLineUnits = 0;
 			_isHoldingFullLine = false;
 			SetDisplayedText("");
 			ProcessQueue();
@@ -302,14 +306,13 @@ public sealed class SubtitleOverlayService
 			return;
 		}
 
-		_subtitleText.Text = string.IsNullOrWhiteSpace(text) ? " " : text.TrimStart();
+		_subtitleText.Text = NormalizeDisplayedText(text);
 	}
 
 	private void ResetBuffer()
 	{
 		_pendingChars.Clear();
 		_visibleLine.Clear();
-		_visibleLineUnits = 0;
 		_isHoldingFullLine = false;
 	}
 
@@ -343,12 +346,78 @@ public sealed class SubtitleOverlayService
 		});
 	}
 
-	private double EstimateMaxLineUnits()
+	private double GetAvailableTextWidth()
 	{
-		var width = _window?.ActualWidth > 0 ? _window.ActualWidth : _window?.Width ?? 1180;
+		var containerWidth = _container?.ActualWidth > 0 ? _container.ActualWidth : 0;
+		if (containerWidth <= 0)
+		{
+			var windowWidth = _window?.ActualWidth > 0 ? _window.ActualWidth : _window?.Width ?? 1180;
+			containerWidth = Math.Max(0, windowWidth - RootHorizontalMargin);
+		}
+
+		var horizontalPadding = _container is null
+			? 48
+			: _container.Padding.Left + _container.Padding.Right;
+
+		return Math.Max(MinimumTextWidth, containerWidth - horizontalPadding - TextWidthSafetyMargin);
+	}
+
+	private bool DoesTextFit(string text, double availableWidth)
+	{
+		var measuredWidth = MeasureTextWidth(text);
+		if (measuredWidth is not null)
+		{
+			return measuredWidth.Value <= availableWidth;
+		}
+
+		return EstimateTextWidth(text) <= availableWidth;
+	}
+
+	private double? MeasureTextWidth(string text)
+	{
+		var subtitleText = _subtitleText;
+		if (subtitleText is null)
+		{
+			return null;
+		}
+
+		try
+		{
+			var displayedText = NormalizeDisplayedText(text);
+			var pixelsPerDip = WpfVisualTreeHelper.GetDpi(subtitleText).PixelsPerDip;
+			var typeface = new WpfTypeface(
+				subtitleText.FontFamily,
+				subtitleText.FontStyle,
+				subtitleText.FontWeight,
+				subtitleText.FontStretch);
+			var formattedText = new WpfFormattedText(
+				displayedText,
+				CultureInfo.CurrentUICulture,
+				WpfFlowDirection.LeftToRight,
+				typeface,
+				subtitleText.FontSize,
+				subtitleText.Foreground,
+				pixelsPerDip);
+
+			return formattedText.WidthIncludingTrailingWhitespace;
+		}
+		catch
+		{
+			return null;
+		}
+	}
+
+	private double EstimateTextWidth(string text)
+	{
 		var fontSize = Math.Clamp(_settings.SubtitleFontSize, 18, 96);
-		var availableWidth = Math.Max(240, width - 96);
-		return Math.Max(8, availableWidth / (fontSize * 0.92));
+		var units = 0.0;
+
+		foreach (var character in NormalizeDisplayedText(text))
+		{
+			units += EstimateCharacterUnits(character);
+		}
+
+		return units * fontSize * 0.92;
 	}
 
 	private static double EstimateCharacterUnits(char character)
@@ -368,6 +437,11 @@ public sealed class SubtitleOverlayService
 			or >= '\u3040' and <= '\u30FF'
 			or >= '\uAC00' and <= '\uD7AF'
 			or >= '\uFF00' and <= '\uFFEF';
+	}
+
+	private static string NormalizeDisplayedText(string text)
+	{
+		return string.IsNullOrWhiteSpace(text) ? " " : text.TrimStart();
 	}
 
 	private static void PlaceNearBottom(WpfWindow window)

@@ -64,8 +64,7 @@ public sealed class HighPrecisionAudioSegmenter(HighPrecisionAudioSegmenterOptio
 			_trailingSilenceBytes += pcm16Audio.Length;
 		}
 
-		var shouldFlushForSilence = _segmentBytes >= _targetWindowBytes &&
-			_trailingSilenceBytes >= _silenceCommitBytes;
+		var shouldFlushForSilence = _trailingSilenceBytes >= _silenceCommitBytes;
 		var shouldFlushForMaxWindow = _segmentBytes >= _maxWindowBytes;
 		if (!shouldFlushForSilence && !shouldFlushForMaxWindow)
 		{
@@ -78,7 +77,9 @@ public sealed class HighPrecisionAudioSegmenter(HighPrecisionAudioSegmenterOptio
 		}
 
 		var audio = BuildSegmentAudio();
-		var reason = shouldFlushForMaxWindow ? "max_window" : "silence_after_target";
+		var reason = shouldFlushForMaxWindow
+			? "max_window"
+			: _segmentBytes >= _targetWindowBytes ? "silence" : "short_silence";
 		ResetAfterFlush(audio, keepOverlapActive: shouldFlushForMaxWindow);
 		return new HighPrecisionSegmenterResult(
 			audio,

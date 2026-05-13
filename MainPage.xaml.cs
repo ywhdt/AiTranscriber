@@ -755,7 +755,7 @@ public partial class MainPage : ContentPage
 		var noiseReductionName = NoiseReductionDisplayName(settings.NoiseReductionMode);
 		if (settings.UsesHighPrecisionSubtitleMode)
 		{
-			return $"正在监听电脑系统音频。模型 {AppSettings.Gpt4oTranscribeModel}；高精度字幕；目标窗口 {settings.HighPrecisionTargetWindowSeconds:0.#} 秒，最长 {settings.HighPrecisionMaxWindowSeconds:0.#} 秒，重叠 {settings.HighPrecisionOverlapSeconds:0.#} 秒。";
+			return $"正在监听电脑系统音频。模型 {AppSettings.Gpt4oTranscribeModel}；高精度字幕；长静音 {settings.VadSilenceCommitMilliseconds:0} ms 后提交，最长 {settings.HighPrecisionMaxWindowSeconds:0.#} 秒，重叠 {settings.HighPrecisionOverlapSeconds:0.#} 秒。";
 		}
 
 		return $"正在监听电脑系统音频。模型 {AppSettings.RealtimeWhisperModel}；实时对话；降噪 {noiseReductionName}；长静音 {settings.VadSilenceCommitMilliseconds:0} ms 或最长 {ClampRealtimeMaxSegmentSeconds(settings.MaxSegmentSeconds):0} 秒后提交。";
