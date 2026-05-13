@@ -34,7 +34,7 @@ public sealed class AppSettingsService
 		var legacySilenceCommitMilliseconds = Preferences.Default.Get(VadSilenceCommitMillisecondsName, 1200.0);
 		var realtimeSilenceCommitDefault = hasLegacySilenceCommitMilliseconds
 			? legacySilenceCommitMilliseconds
-			: 2000.0;
+			: 800.0;
 		var highPrecisionSilenceCommitDefault = hasLegacySilenceCommitMilliseconds
 			? legacySilenceCommitMilliseconds
 			: 4000.0;

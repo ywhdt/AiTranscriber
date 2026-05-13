@@ -44,7 +44,7 @@ public sealed class AppSettings
 
 	public double VadPreRollMilliseconds { get; set; } = 300;
 
-	public double RealtimeSilenceCommitMilliseconds { get; set; } = 2000;
+	public double RealtimeSilenceCommitMilliseconds { get; set; } = 800;
 
 	public double HighPrecisionSilenceCommitMilliseconds { get; set; } = 4000;
 
