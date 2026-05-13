@@ -1,6 +1,7 @@
 # Windows AI Transcriber
 
 一个 Windows-first 的 .NET MAUI 实时转写工具。当前版本会抓取电脑正在播放的系统音频，通过 OpenAI Realtime 转写接口把声音实时变成文字，并可在停止后保存文本记录。
+本项目仅用于学习和个人使用。
 
 ## 当前功能
 
