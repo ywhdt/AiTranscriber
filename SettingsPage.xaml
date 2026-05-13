@@ -77,16 +77,6 @@
                             <Label x:Name="RealtimeMaxSegmentLabel" TextColor="#344054" />
                             <Slider x:Name="RealtimeMaxSegmentSlider" Minimum="5" Maximum="60" ValueChanged="OnSliderChanged" />
                         </VerticalStackLayout>
-
-                        <VerticalStackLayout Spacing="6">
-                            <Label x:Name="MinimumRmsLabel" TextColor="#344054" />
-                            <Slider x:Name="MinimumRmsSlider" Minimum="0.003" Maximum="0.05" ValueChanged="OnSliderChanged" />
-                        </VerticalStackLayout>
-
-                        <VerticalStackLayout Spacing="6">
-                            <Label x:Name="NoiseMultiplierLabel" TextColor="#344054" />
-                            <Slider x:Name="NoiseMultiplierSlider" Minimum="1.2" Maximum="6" ValueChanged="OnSliderChanged" />
-                        </VerticalStackLayout>
                     </VerticalStackLayout>
                 </Border>
 

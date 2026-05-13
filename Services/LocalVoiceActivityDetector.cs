@@ -2,11 +2,14 @@ namespace WindowsAiTranscriber.Services;
 
 public sealed class LocalVoiceActivityDetector(LocalVadOptions options)
 {
+	private readonly object _sensitivityLock = new();
 	private readonly Queue<byte[]> _preRollChunks = [];
 	private readonly int _preRollBytes = options.PreRollDuration.ToPcm16ByteCount(options.SampleRate);
 	private readonly int _silenceCommitBytes = options.SilenceCommitDuration.ToPcm16ByteCount(options.SampleRate);
 	private readonly int _minimumSilenceCommitBytes = options.MinimumSilenceCommitDuration.ToPcm16ByteCount(options.SampleRate);
 	private readonly int _maxSegmentBytes = options.MaxSegmentDuration.ToPcm16ByteCount(options.SampleRate);
+	private double _minimumSpeechRms = Math.Max(0, options.MinimumSpeechRms);
+	private double _noiseMultiplier = Math.Max(0, options.NoiseMultiplier);
 	private double _noiseFloorRms = options.MinimumSpeechRms / 2;
 	private int _preRollTotalBytes;
 	private int _currentSegmentBytes;
@@ -21,7 +24,7 @@ public sealed class LocalVoiceActivityDetector(LocalVadOptions options)
 		}
 
 		var rms = CalculateRms(pcm16Audio);
-		var threshold = Math.Max(options.MinimumSpeechRms, _noiseFloorRms * options.NoiseMultiplier);
+		var threshold = CalculateThreshold();
 		var hasSpeech = rms >= threshold;
 
 		if (!_isSpeechActive && !hasSpeech)
@@ -74,6 +77,16 @@ public sealed class LocalVoiceActivityDetector(LocalVadOptions options)
 
 	public bool HasActiveSegment => _isSpeechActive || _currentSegmentBytes > 0;
 
+	public void UpdateSensitivity(double minimumSpeechRms, double noiseMultiplier)
+	{
+		lock (_sensitivityLock)
+		{
+			_minimumSpeechRms = Math.Max(0, minimumSpeechRms);
+			_noiseMultiplier = Math.Max(0, noiseMultiplier);
+			_noiseFloorRms = Math.Min(_noiseFloorRms, _minimumSpeechRms);
+		}
+	}
+
 	public void Reset()
 	{
 		_preRollChunks.Clear();
@@ -124,8 +137,19 @@ public sealed class LocalVoiceActivityDetector(LocalVadOptions options)
 
 	private void UpdateNoiseFloor(double rms)
 	{
-		var clampedRms = Math.Min(rms, options.MinimumSpeechRms);
-		_noiseFloorRms = (_noiseFloorRms * 0.95) + (clampedRms * 0.05);
+		lock (_sensitivityLock)
+		{
+			var clampedRms = Math.Min(rms, _minimumSpeechRms);
+			_noiseFloorRms = (_noiseFloorRms * 0.95) + (clampedRms * 0.05);
+		}
+	}
+
+	private double CalculateThreshold()
+	{
+		lock (_sensitivityLock)
+		{
+			return Math.Max(_minimumSpeechRms, _noiseFloorRms * _noiseMultiplier);
+		}
 	}
 
 	private static double CalculateRms(byte[] pcm16Audio)

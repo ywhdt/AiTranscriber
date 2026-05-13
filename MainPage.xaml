@@ -72,6 +72,38 @@
                             Placeholder="例如课程名、人名、产品名。高精度字幕模式可用；实时模式下提示词无效。可留空。" />
                     </VerticalStackLayout>
 
+                    <VerticalStackLayout Spacing="8">
+                        <Label Text="声音触发调节" FontAttributes="Bold" FontSize="16" TextColor="#101828" />
+
+                        <VerticalStackLayout Spacing="4">
+                            <Label x:Name="MinimumRmsLabel" TextColor="#344054" />
+                            <Slider
+                                x:Name="MinimumRmsSlider"
+                                Minimum="0.003"
+                                Maximum="0.05"
+                                ValueChanged="OnSensitivitySliderChanged" />
+                            <Label
+                                Text="固定触发下限。系统/播放器音量偏低、小声对白漏掉时调低；背景声或音乐误触发时调高。过低会把噪声当语音，过高会漏掉轻声台词。"
+                                FontSize="12"
+                                LineBreakMode="WordWrap"
+                                TextColor="#667085" />
+                        </VerticalStackLayout>
+
+                        <VerticalStackLayout Spacing="4">
+                            <Label x:Name="NoiseMultiplierLabel" TextColor="#344054" />
+                            <Slider
+                                x:Name="NoiseMultiplierSlider"
+                                Minimum="1.2"
+                                Maximum="6"
+                                ValueChanged="OnSensitivitySliderChanged" />
+                            <Label
+                                Text="根据当前底噪动态抬高触发阈值。数值越高越保守，更能压住背景声；数值越低越敏感，更容易捕捉小声对白，但也更容易误触发。"
+                                FontSize="12"
+                                LineBreakMode="WordWrap"
+                                TextColor="#667085" />
+                        </VerticalStackLayout>
+                    </VerticalStackLayout>
+
                     <Grid ColumnDefinitions="*,*" ColumnSpacing="10">
                         <Button
                             x:Name="StartButton"

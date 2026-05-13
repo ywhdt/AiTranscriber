@@ -18,6 +18,11 @@ public partial class MainPage : ContentPage
 	private const int MinimumCommitBytes = AudioSampleRate * 2 / 10;
 	private const double RealtimeMaxSegmentMinSeconds = 5.0;
 	private const double RealtimeMaxSegmentMaxSeconds = 60.0;
+	private const double MinimumSpeechRmsMin = 0.003;
+	private const double MinimumSpeechRmsMax = 0.05;
+	private const double NoiseMultiplierMin = 1.2;
+	private const double NoiseMultiplierMax = 6.0;
+	private const int SensitivitySaveDelayMilliseconds = 400;
 
 	private readonly AppSettingsService _settingsService;
 	private readonly TranscriptStore _transcriptStore;
@@ -35,11 +40,13 @@ public partial class MainPage : ContentPage
 	private Channel<HighPrecisionAudioSegment>? _highPrecisionChannel;
 	private Task? _highPrecisionWorkerTask;
 	private CancellationTokenSource? _sessionCts;
+	private CancellationTokenSource? _sensitivitySaveCts;
 	private int _hasUncommittedRealtimeAudio;
 	private int _highPrecisionSegmentSequence;
 	private string _partialText = "";
 	private string _lastHighPrecisionText = "";
 	private bool _subtitleReceivedDeltaForCurrentSegment;
+	private bool _isMainPageLoaded;
 
 	public MainPage(
 		AppSettingsService settingsService,
@@ -71,11 +78,14 @@ public partial class MainPage : ContentPage
 	{
 		base.OnAppearing();
 
+		_isMainPageLoaded = false;
 		_settings = await _settingsService.LoadAsync();
 		_settings.Model = ModelForMode(_settings);
 		ApiKeyEntry.Text = _settings.ApiKey;
 		LanguagePicker.SelectedItem = FindLanguageOption(_settings.Language);
 		PromptEditor.Text = _settings.Prompt;
+		LoadSensitivityControlsFromSettings();
+		_isMainPageLoaded = true;
 		UpdateModelDisplay();
 		_subtitleOverlayService.ApplySettings(_settings);
 		UpdateSubtitleWindowButton();
@@ -117,11 +127,18 @@ public partial class MainPage : ContentPage
 
 	private async void OnSettingsClicked(object? sender, EventArgs e)
 	{
+		ReadSensitivitySettingsFromUi();
+		await SaveVadSensitivityFromMainPageAsync();
+
 		var settingsPage = new SettingsPage(_settingsService, _subtitleOverlayService);
 		settingsPage.SettingsSaved += (_, settings) =>
 		{
+			ReadSensitivitySettingsFromUi();
+			settings.VadMinimumSpeechRms = _settings.VadMinimumSpeechRms;
+			settings.VadNoiseMultiplier = _settings.VadNoiseMultiplier;
 			settings.Model = ModelForMode(settings);
 			_subtitleOverlayService.ApplySettings(settings);
+			_ = SaveVadSensitivityFromMainPageAsync();
 			UpdateSettingsDuringOrBetweenSessions(settings);
 		};
 
@@ -143,6 +160,19 @@ public partial class MainPage : ContentPage
 		}
 
 		UpdateSubtitleWindowButton();
+	}
+
+	private void OnSensitivitySliderChanged(object? sender, ValueChangedEventArgs e)
+	{
+		if (!_isMainPageLoaded)
+		{
+			return;
+		}
+
+		ReadSensitivitySettingsFromUi();
+		UpdateSensitivityLabels();
+		ApplySensitivityDuringSession();
+		ScheduleVadSensitivitySave();
 	}
 
 	private async Task StartSessionAsync()
@@ -295,6 +325,93 @@ public partial class MainPage : ContentPage
 		OutputPathLabel.Text = $"已保存：{path}";
 	}
 
+	private void LoadSensitivityControlsFromSettings()
+	{
+		MinimumRmsSlider.Value = Math.Clamp(
+			_settings.VadMinimumSpeechRms,
+			MinimumSpeechRmsMin,
+			MinimumSpeechRmsMax);
+		NoiseMultiplierSlider.Value = Math.Clamp(
+			_settings.VadNoiseMultiplier,
+			NoiseMultiplierMin,
+			NoiseMultiplierMax);
+		ReadSensitivitySettingsFromUi();
+		UpdateSensitivityLabels();
+	}
+
+	private void ReadSensitivitySettingsFromUi()
+	{
+		_settings.VadMinimumSpeechRms = Math.Round(Math.Clamp(
+			MinimumRmsSlider.Value,
+			MinimumSpeechRmsMin,
+			MinimumSpeechRmsMax), 3);
+		_settings.VadNoiseMultiplier = Math.Round(Math.Clamp(
+			NoiseMultiplierSlider.Value,
+			NoiseMultiplierMin,
+			NoiseMultiplierMax), 1);
+	}
+
+	private void UpdateSensitivityLabels()
+	{
+		MinimumRmsLabel.Text = $"最低语音音量：{_settings.VadMinimumSpeechRms:0.000}";
+		NoiseMultiplierLabel.Text = $"噪声倍率：{_settings.VadNoiseMultiplier:0.0}";
+	}
+
+	private void ScheduleVadSensitivitySave()
+	{
+		_sensitivitySaveCts?.Cancel();
+
+		var cts = new CancellationTokenSource();
+		_sensitivitySaveCts = cts;
+		_ = SaveVadSensitivityAfterDelayAsync(cts);
+	}
+
+	private async Task SaveVadSensitivityAfterDelayAsync(CancellationTokenSource cts)
+	{
+		try
+		{
+			await Task.Delay(SensitivitySaveDelayMilliseconds, cts.Token);
+			await SaveVadSensitivityFromMainPageAsync();
+		}
+		catch (OperationCanceledException)
+		{
+		}
+		finally
+		{
+			if (ReferenceEquals(_sensitivitySaveCts, cts))
+			{
+				_sensitivitySaveCts = null;
+			}
+
+			cts.Dispose();
+		}
+	}
+
+	private Task SaveVadSensitivityFromMainPageAsync()
+	{
+		ReadSensitivitySettingsFromUi();
+		return _settingsService.SaveVadSensitivityAsync(
+			_settings.VadMinimumSpeechRms,
+			_settings.VadNoiseMultiplier);
+	}
+
+	private void ApplySensitivityDuringSession()
+	{
+		if (_sessionSettings is null)
+		{
+			return;
+		}
+
+		_sessionSettings.VadMinimumSpeechRms = _settings.VadMinimumSpeechRms;
+		_sessionSettings.VadNoiseMultiplier = _settings.VadNoiseMultiplier;
+		_realtimeVoiceActivityDetector.UpdateSensitivity(
+			_settings.VadMinimumSpeechRms,
+			_settings.VadNoiseMultiplier);
+		_highPrecisionSegmenter.UpdateSensitivity(
+			_settings.VadMinimumSpeechRms,
+			_settings.VadNoiseMultiplier);
+	}
+
 	private async Task UpdateSettingsFromUiAsync()
 	{
 		_settings = await _settingsService.LoadAsync();
@@ -302,6 +419,8 @@ public partial class MainPage : ContentPage
 		_settings.Model = ModelForMode(_settings);
 		_settings.Language = (LanguagePicker.SelectedItem as LanguageOption)?.Code ?? LanguageOptions[0].Code;
 		_settings.Prompt = PromptEditor.Text?.Trim() ?? "";
+		ReadSensitivitySettingsFromUi();
+		UpdateSensitivityLabels();
 		UpdateModelDisplay();
 	}
 

@@ -64,8 +64,6 @@ public partial class SettingsPage : ContentPage
 			RealtimeMaxSegmentMinSeconds,
 			RealtimeMaxSegmentMaxSeconds);
 		RealtimeMaxSegmentSlider.Value = _settings.MaxSegmentSeconds;
-		MinimumRmsSlider.Value = _settings.VadMinimumSpeechRms;
-		NoiseMultiplierSlider.Value = _settings.VadNoiseMultiplier;
 		SubtitleFontSizeSlider.Value = _settings.SubtitleFontSize;
 		SubtitleOpacitySlider.Value = _settings.SubtitleBackgroundOpacity;
 		SubtitleHoldSlider.Value = _settings.SubtitleLineHoldSeconds;
@@ -93,8 +91,6 @@ public partial class SettingsPage : ContentPage
 			RealtimeMaxSegmentSlider.Value,
 			RealtimeMaxSegmentMinSeconds,
 			RealtimeMaxSegmentMaxSeconds));
-		_settings.VadMinimumSpeechRms = Math.Round(MinimumRmsSlider.Value, 3);
-		_settings.VadNoiseMultiplier = Math.Round(NoiseMultiplierSlider.Value, 1);
 		_settings.SubtitleFontSize = Math.Round(SubtitleFontSizeSlider.Value);
 		_settings.SubtitleBackgroundOpacity = Math.Round(SubtitleOpacitySlider.Value, 2);
 		_settings.SubtitleLineHoldSeconds = Math.Round(SubtitleHoldSlider.Value, 1);
@@ -188,8 +184,6 @@ public partial class SettingsPage : ContentPage
 		RealtimeSilenceCommitLabel.Text = $"实时长静音提交：{_settings.RealtimeSilenceCommitMilliseconds:0} ms";
 		HighPrecisionSilenceCommitLabel.Text = $"高精度长静音提交：{_settings.HighPrecisionSilenceCommitMilliseconds:0} ms";
 		RealtimeMaxSegmentLabel.Text = $"实时最长片段：{_settings.MaxSegmentSeconds:0} 秒";
-		MinimumRmsLabel.Text = $"最低语音音量：{_settings.VadMinimumSpeechRms:0.000}";
-		NoiseMultiplierLabel.Text = $"噪声倍率：{_settings.VadNoiseMultiplier:0.0}";
 		SubtitleFontSizeLabel.Text = $"字幕字号：{_settings.SubtitleFontSize:0}";
 		SubtitleOpacityLabel.Text = $"字幕背景不透明度：{_settings.SubtitleBackgroundOpacity:P0}";
 		SubtitleHoldLabel.Text = $"满行停留：{_settings.SubtitleLineHoldSeconds:0.0} 秒";

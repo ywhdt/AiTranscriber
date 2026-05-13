@@ -73,9 +73,10 @@ dotnet run --project WindowsAiTranscriber.csproj -f net10.0-windows10.0.19041.0
 - **转写模型**：只读显示。实时模式固定 `gpt-realtime-whisper`，高精度字幕模式固定 `gpt-4o-transcribe`。
 - **语言**：当前界面提供 `zh`、`en`、`ja` 三个选项，默认 `ja`。
 - **专有名词提示**：填写课程名、人名、产品名、术语等，以提升识别稳定性。
+- **声音触发调节**：在首页直接调整最低语音音量和噪声倍率，用来补偿系统/播放器音量变化对本地 VAD 的影响；运行中调整会对后续音频块生效。
 - **开始/停止**：开始后按当前模式启动转写管线和系统音频采集；停止时提交剩余音频并关闭会话。
 - **清空/保存**：清空当前窗口内容，或手动把已完成片段保存为 `.txt`。
-- **设置**：调整分段模式、本地 VAD、自动保存和字幕悬浮窗参数。
+- **设置**：调整分段模式、本地 VAD 时间参数、自动保存和字幕悬浮窗参数。
 - **打开字幕窗**：打开/关闭独立字幕条窗口。
 
 ### 设置页
@@ -85,7 +86,7 @@ dotnet run --project WindowsAiTranscriber.csproj -f net10.0-windows10.0.19041.0
 - 自动保存转写结果
 - 分段模式：实时对话 / 高精度字幕
 - 高精度目标窗口、最长窗口、重叠时长
-- VAD 前置音频、实时长静音提交、高精度长静音提交、最低语音音量、噪声倍率
+- VAD 前置音频、实时长静音提交、高精度长静音提交
 - 字幕字号、背景不透明度、满行停留时间、空闲清空时间
 
 默认值集中在 `Models/AppSettings.cs` 中。当前默认配置偏向日语视频/系统音频的高精度字幕：断句完整性和稳定性优先，短句尾句会等待较长静音后提交。
@@ -117,8 +118,9 @@ public double SubtitleIdleClearSeconds { get; set; } = 2.0;
 - 高精度重叠时长可减少切断句首句尾的概率，但可能带来少量重复文本。
 - 实时长静音提交控制实时模式完整语音段的提交等待；高精度长静音提交控制短句和尾句的自动提交等待。
 - 默认 4000 ms 高精度长静音比较保守，适合避免短停顿误切；如果希望字幕更快出现，可以降低这个值。
-- `VadMinimumSpeechRms` 越小越容易触发语音，越大越能抑制背景声误触发。
-- `VadNoiseMultiplier` 越大，对动态噪声越保守。
+- WASAPI loopback 捕获的是系统混音后的输出，系统音量或播放器音量变小会降低本地 VAD 看到的 RMS 振幅。
+- 首页的 `最低语音音量` 越小越容易触发语音，适合低系统音量或小声对白；越大越能抑制背景声误触发，但可能漏掉轻声台词。
+- 首页的 `噪声倍率` 越大，对动态噪声越保守；越小越敏感，更容易捕捉小声对白，也更容易把背景声当语音。
 - 高精度字幕模式如果延迟太高，可降低目标窗口或最长窗口；如果断句过碎，可提高目标窗口或重叠时长。
 
 ## 数据位置
@@ -135,7 +137,7 @@ public double SubtitleIdleClearSeconds { get; set; } = 2.0;
 ```text
 .
 ├── MainPage.xaml / MainPage.xaml.cs                  # 主界面、会话控制、音频/VAD 管线
-├── SettingsPage.xaml / SettingsPage.xaml.cs          # VAD、分段、字幕和自动保存设置
+├── SettingsPage.xaml / SettingsPage.xaml.cs          # VAD 时间、分段、字幕和自动保存设置
 ├── SubtitleOverlayPage.xaml / SubtitleOverlayPage.xaml.cs
 ├── Models/
 │   ├── AppSettings.cs                                # 配置模型和默认值

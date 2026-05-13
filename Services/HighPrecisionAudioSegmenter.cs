@@ -2,6 +2,7 @@ namespace WindowsAiTranscriber.Services;
 
 public sealed class HighPrecisionAudioSegmenter(HighPrecisionAudioSegmenterOptions options)
 {
+	private readonly object _sensitivityLock = new();
 	private readonly Queue<byte[]> _preRollChunks = [];
 	private readonly List<byte[]> _segmentChunks = [];
 	private readonly int _silenceCommitBytes = options.SilenceCommitDuration.ToPcm16ByteCount(options.SampleRate);
@@ -11,6 +12,8 @@ public sealed class HighPrecisionAudioSegmenter(HighPrecisionAudioSegmenterOptio
 	private readonly int _preRollCapacityBytes = Math.Max(
 		options.PreRollDuration.ToPcm16ByteCount(options.SampleRate),
 		options.OverlapDuration.ToPcm16ByteCount(options.SampleRate));
+	private double _minimumSpeechRms = Math.Max(0, options.MinimumSpeechRms);
+	private double _noiseMultiplier = Math.Max(0, options.NoiseMultiplier);
 	private double _noiseFloorRms = options.MinimumSpeechRms / 2;
 	private int _preRollTotalBytes;
 	private int _segmentBytes;
@@ -25,7 +28,7 @@ public sealed class HighPrecisionAudioSegmenter(HighPrecisionAudioSegmenterOptio
 		}
 
 		var rms = CalculateRms(pcm16Audio);
-		var threshold = Math.Max(options.MinimumSpeechRms, _noiseFloorRms * options.NoiseMultiplier);
+		var threshold = CalculateThreshold();
 		var hasSpeech = rms >= threshold;
 
 		if (!_isSpeechActive && !hasSpeech)
@@ -106,6 +109,16 @@ public sealed class HighPrecisionAudioSegmenter(HighPrecisionAudioSegmenterOptio
 			0,
 			0,
 			Pcm16BytesToDuration(audio.Length));
+	}
+
+	public void UpdateSensitivity(double minimumSpeechRms, double noiseMultiplier)
+	{
+		lock (_sensitivityLock)
+		{
+			_minimumSpeechRms = Math.Max(0, minimumSpeechRms);
+			_noiseMultiplier = Math.Max(0, noiseMultiplier);
+			_noiseFloorRms = Math.Min(_noiseFloorRms, _minimumSpeechRms);
+		}
 	}
 
 	public void Reset()
@@ -206,13 +219,24 @@ public sealed class HighPrecisionAudioSegmenter(HighPrecisionAudioSegmenterOptio
 
 	private void UpdateNoiseFloor(double rms)
 	{
-		var clampedRms = Math.Min(rms, options.MinimumSpeechRms);
-		_noiseFloorRms = (_noiseFloorRms * 0.95) + (clampedRms * 0.05);
+		lock (_sensitivityLock)
+		{
+			var clampedRms = Math.Min(rms, _minimumSpeechRms);
+			_noiseFloorRms = (_noiseFloorRms * 0.95) + (clampedRms * 0.05);
+		}
 	}
 
 	private TimeSpan Pcm16BytesToDuration(int byteCount)
 	{
 		return TimeSpan.FromSeconds(byteCount / (options.SampleRate * 2.0));
+	}
+
+	private double CalculateThreshold()
+	{
+		lock (_sensitivityLock)
+		{
+			return Math.Max(_minimumSpeechRms, _noiseFloorRms * _noiseMultiplier);
+		}
 	}
 
 	private static byte[] Tail(byte[] audio, int byteCount)

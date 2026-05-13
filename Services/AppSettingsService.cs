@@ -103,4 +103,11 @@ public sealed class AppSettingsService
 		Preferences.Default.Set(SubtitleLineHoldSecondsName, settings.SubtitleLineHoldSeconds);
 		Preferences.Default.Set(SubtitleIdleClearSecondsName, settings.SubtitleIdleClearSeconds);
 	}
+
+	public Task SaveVadSensitivityAsync(double minimumSpeechRms, double noiseMultiplier)
+	{
+		Preferences.Default.Set(VadMinimumSpeechRmsName, minimumSpeechRms);
+		Preferences.Default.Set(VadNoiseMultiplierName, noiseMultiplier);
+		return Task.CompletedTask;
+	}
 }
